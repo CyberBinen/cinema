@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -23,8 +24,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useToast } from '@/hooks/use-toast';
 
 export default function VideoPlayer() {
+  const { toast } = useToast();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -46,7 +49,9 @@ export default function VideoPlayer() {
         videoElement.src = videoSrc || '';
       }
     }
+    // This is intentional, we only want to re-run this effect when the stream or videoSrc changes.
   }, [stream, videoSrc]);
+
 
   const handlePlayPause = () => {
     if (videoRef.current) {
@@ -71,7 +76,13 @@ export default function VideoPlayer() {
     if (!videoContainer) return;
 
     if (!document.fullscreenElement) {
-        videoContainer.requestFullscreen();
+        videoContainer.requestFullscreen().catch(err => {
+          toast({
+            variant: 'destructive',
+            title: 'Fullscreen Error',
+            description: 'Could not enter fullscreen mode. Your browser might not support it or it might be disabled.',
+          });
+        });
         setIsFullscreen(true);
     } else {
       if (document.exitFullscreen) {
@@ -108,7 +119,26 @@ export default function VideoPlayer() {
         setStream(null);
         setIsPlaying(false);
       });
-    } catch (error) {
+    } catch (error: any) {
+        if (error.name === 'NotAllowedError') {
+             toast({
+                variant: 'destructive',
+                title: 'Permission Denied',
+                description: 'You denied the request to share your screen.',
+            });
+        } else if (error.name === 'SecurityError') {
+            toast({
+                variant: 'destructive',
+                title: 'Permission Policy Error',
+                description: 'Screen sharing is not allowed by the current security policy. This may happen in embedded environments like this one.',
+            });
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Screen Share Error',
+                description: 'Could not start screen sharing. Please try again.',
+            });
+        }
       console.error('Error sharing screen:', error);
     }
   };
@@ -118,10 +148,12 @@ export default function VideoPlayer() {
       <div className="relative w-full aspect-video bg-black rounded-lg shadow-2xl overflow-hidden group">
         <video
           ref={videoRef}
+          src={videoSrc ?? undefined}
           className={`w-full h-full object-contain ${!videoSrc && !stream ? 'hidden' : ''}`}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onVolumeChange={(e) => setIsMuted((e.target as HTMLVideoElement).muted)}
+          controls={false}
         />
 
         {!videoSrc && !stream && (
@@ -129,7 +161,7 @@ export default function VideoPlayer() {
             <Image
               src="https://placehold.co/1920x1080/000000/ffffff.png"
               alt="Movie placeholder"
-              layout="fill"
+              fill
               objectFit="cover"
               data-ai-hint="cinema screen"
             />
