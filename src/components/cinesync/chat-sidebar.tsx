@@ -1,14 +1,30 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useActionState, useRef, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Clapperboard, Send, Users } from 'lucide-react';
+import { Clapperboard, Send, Users, MessageSquareQuote, Loader2, Bot, SmilePlus } from 'lucide-react';
+import { useFormStatus } from 'react-dom';
+import { getChatSummary, getTriviaAnswer } from '@/app/actions';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useToast } from '@/hooks/use-toast';
 
-const mockMessages = [
+
+interface Message {
+  user: string;
+  avatar: string;
+  aiHint: string;
+  text: string;
+  time: string;
+  isYou?: boolean;
+  isBot?: boolean;
+}
+
+const initialMessages: Message[] = [
   {
     user: 'Alex',
     avatar: 'https://placehold.co/40x40.png',
@@ -30,32 +46,106 @@ const mockMessages = [
     text: 'Just joined! Did I miss anything important?',
     time: '5:03 PM',
   },
-  {
-    user: 'You',
-    avatar: 'https://placehold.co/40x40.png',
-    aiHint: 'user icon',
-    text: "Not much, just the beginning. Welcome! Grab some popcorn. 🍿",
-    time: '5:03 PM',
-    isYou: true,
-  },
-  {
-    user: 'Chloe',
-    avatar: 'https://placehold.co/40x40.png',
-    aiHint: 'woman face',
-    text: 'The sound design is incredible. I have my headphones on.',
-    time: '5:05 PM',
-  },
-  {
-    user: 'Alex',
-    avatar: 'https://placehold.co/40x40.png',
-    aiHint: 'man face',
-    text: 'Haha, classic line coming up!',
-    time: '5:07 PM',
-  },
 ];
 
+const SummaryButton = () => {
+  const { pending } = useFormStatus();
+  return (
+     <Button variant="outline" size="sm" type="submit" disabled={pending}>
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Summarizing...
+        </>
+      ) : (
+        <>
+          <MessageSquareQuote className="mr-2 h-4 w-4" />
+          Summarize Chat
+        </>
+      )}
+    </Button>
+  )
+}
 
-export default function ChatSidebar() {
+const SendButton = () => {
+    const { pending } = useFormStatus();
+    return (
+        <Button
+            type="submit"
+            size="icon"
+            variant="ghost"
+            className="absolute top-1/2 right-1 -translate-y-1/2 h-8 w-8 text-accent hover:text-accent"
+            disabled={pending}
+        >
+            {pending ? <Loader2 className="animate-spin" size={20}/> : <Send size={20} />}
+        </Button>
+    )
+}
+
+export default function ChatSidebar({ movieTitle }: { movieTitle: string }) {
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [summary, setSummary] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const { toast } = useToast();
+
+  // Chat Summary Action
+  const [summaryState, summaryAction] = useActionState(getChatSummary, { summary: undefined, error: undefined });
+  useEffect(() => {
+    if(summaryState?.summary) {
+        setSummary(summaryState.summary);
+    }
+    if(summaryState?.error) {
+        toast({ variant: 'destructive', title: 'Error', description: summaryState.error });
+    }
+  }, [summaryState, toast]);
+
+  // Trivia/Chatbot Action
+  const [triviaState, triviaAction] = useActionState(getTriviaAnswer, { answer: undefined, error: undefined });
+  useEffect(() => {
+    if (triviaState?.answer) {
+      setMessages(prev => [...prev, {
+          user: 'CineSync Bot',
+          avatar: 'https://placehold.co/40x40.png',
+          aiHint: 'robot face',
+          text: triviaState.answer,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isBot: true,
+      }]);
+    }
+    if (triviaState?.error) {
+        toast({ variant: 'destructive', title: 'Error', description: triviaState.error });
+    }
+  }, [triviaState, toast]);
+
+  const handleTriviaSubmit = (formData: FormData) => {
+    const question = formData.get('question') as string;
+    if (!question) return;
+
+    const userMessage: Message = {
+      user: 'You',
+      avatar: 'https://placehold.co/40x40.png',
+      aiHint: 'user icon',
+      text: question,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isYou: true,
+    };
+    setMessages(prev => [...prev, userMessage]);
+
+    const triviaFormData = new FormData();
+    triviaFormData.append('movieTitle', movieTitle);
+    triviaFormData.append('question', question);
+    
+    triviaAction(triviaFormData);
+    formRef.current?.reset();
+  }
+  
+  const handleEmojiClick = (emoji: string) => {
+    const event = new CustomEvent('emoji-reaction', { detail: emoji });
+    window.dispatchEvent(event);
+  };
+
+  const chatHistoryForSummary = messages.map(m => `${m.user}: ${m.text}`).join('\n');
+
   return (
     <aside className="w-full md:w-80 lg:w-96 bg-card flex flex-col h-screen border-l border-border">
       <header className="p-4 flex flex-col gap-2 items-center justify-center border-b">
@@ -65,15 +155,28 @@ export default function ChatSidebar() {
             CineSync
           </h1>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Users size={16} />
-            <span>14 Viewers</span>
+        <div className="flex items-center justify-center gap-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Users size={16} />
+                <span>14 Viewers</span>
+            </div>
+            <form action={summaryAction}>
+                <input type="hidden" name="chatHistory" value={chatHistoryForSummary} />
+                <SummaryButton />
+            </form>
         </div>
       </header>
       
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-6">
-          {mockMessages.map((msg, index) => (
+            {summary && (
+              <Alert>
+                <Bot className="h-4 w-4" />
+                <AlertTitle>Chat Summary</AlertTitle>
+                <AlertDescription>{summary}</AlertDescription>
+              </Alert>
+            )}
+          {messages.map((msg, index) => (
             <div
               key={index}
               className={`flex items-start gap-3 ${
@@ -93,6 +196,8 @@ export default function ChatSidebar() {
                   className={`rounded-lg px-3 py-2 max-w-xs ${
                     msg.isYou
                       ? 'bg-primary text-primary-foreground'
+                      : msg.isBot
+                      ? 'bg-accent/20 border border-accent/50'
                       : 'bg-secondary text-secondary-foreground'
                   }`}
                 >
@@ -109,20 +214,33 @@ export default function ChatSidebar() {
       <Separator />
 
       <footer className="p-4">
-        <form onSubmit={(e) => e.preventDefault()}>
+        <form action={handleTriviaSubmit} ref={formRef}>
           <div className="relative">
             <Input
-              placeholder="Say something..."
-              className="pr-12"
+              name="question"
+              placeholder="Ask the AI about the movie..."
+              className="pr-20"
+              required
             />
-            <Button
-              type="submit"
-              size="icon"
-              variant="ghost"
-              className="absolute top-1/2 right-1 -translate-y-1/2 h-8 w-8 text-accent hover:text-accent"
-            >
-              <Send size={20} />
-            </Button>
+            <div className="absolute top-1/2 right-10 -translate-y-1/2">
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-accent">
+                            <SmilePlus size={20} />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2">
+                        <div className="flex gap-1">
+                            {['👍', '😂', '😍', '🤯', '🍿'].map(emoji => (
+                                <Button key={emoji} variant="ghost" size="icon" onClick={() => handleEmojiClick(emoji)} className="text-2xl">
+                                    {emoji}
+                                </Button>
+                            ))}
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            </div>
+            <SendButton />
           </div>
         </form>
       </footer>

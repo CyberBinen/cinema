@@ -13,7 +13,7 @@ export default function WatchPage({ params }: { params: { id: string } }) {
         <MainView movieTitle={movieTitle} />
         <ParticipantsPanel />
       </main>
-      <ChatSidebar />
+      <ChatSidebar movieTitle={movieTitle}/>
     </div>
   );
 }

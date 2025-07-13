@@ -2,6 +2,8 @@
 
 import { recommendFilm, RecommendFilmInput, RecommendFilmOutput } from "@/ai/flows/recommend-film";
 import { searchFilm, SearchFilmInput, SearchFilmOutput } from "@/ai/flows/search-film";
+import { summarizeChat, SummarizeChatInput, SummarizeChatOutput } from "@/ai/flows/summarize-chat";
+import { chatBot, ChatBotInput, ChatBotOutput } from "@/ai/flows/chat-bot";
 import { z } from "zod";
 
 const recommendFilmActionSchema = z.object({
@@ -11,6 +13,15 @@ const recommendFilmActionSchema = z.object({
 
 const searchFilmActionSchema = z.object({
     movieTitle: z.string().min(2, "Please enter a movie title."),
+});
+
+const summarizeChatActionSchema = z.object({
+    chatHistory: z.string().min(1, "Chat history cannot be empty."),
+});
+
+const chatBotActionSchema = z.object({
+    movieTitle: z.string(),
+    question: z.string().min(1, "Question cannot be empty."),
 });
 
 
@@ -52,7 +63,7 @@ export async function searchForFilm(
     error?: any;
 }> {
     const validatedFields = searchFilmActionSchema.safeParse({
-        movieTitle: formData.get('movieTitle')
+        movieTitle: formData.get('movieTitle') as string
     });
 
     if (!validatedFields.success) {
@@ -63,9 +74,56 @@ export async function searchForFilm(
     }
 
     try {
-        const result = await searchFilm(validatedFields.data as SearchFilmInput);
+        const result = await searchFilm({ title: validatedFields.data.movieTitle });
         return { message: "success", recommendation: result };
     } catch(e) {
         return { message: "error", error: "Something went wrong with the AI. Please try again." };
+    }
+}
+
+export async function getChatSummary(
+    prevState: any,
+    formData: FormData
+): Promise<{
+    summary?: string;
+    error?: string;
+}> {
+    const validatedFields = summarizeChatActionSchema.safeParse({
+        chatHistory: formData.get('chatHistory')
+    });
+
+    if (!validatedFields.success) {
+        return { error: "Validation failed" };
+    }
+
+    try {
+        const result = await summarizeChat(validatedFields.data);
+        return { summary: result.summary };
+    } catch(e) {
+        return { error: "Something went wrong with the AI. Please try again." };
+    }
+}
+
+export async function getTriviaAnswer(
+    prevState: any,
+    formData: FormData
+): Promise<{
+    answer?: string;
+    error?: string;
+}> {
+     const validatedFields = chatBotActionSchema.safeParse({
+        movieTitle: formData.get('movieTitle'),
+        question: formData.get('question'),
+    });
+
+    if (!validatedFields.success) {
+        return { error: "Validation failed" };
+    }
+
+     try {
+        const result = await chatBot(validatedFields.data);
+        return { answer: result.answer };
+    } catch(e) {
+        return { error: "Something went wrong with the AI. Please try again." };
     }
 }

@@ -3,3 +3,5 @@ config();
 
 import '@/ai/flows/recommend-film.ts';
 import '@/ai/flows/search-film.ts';
+import '@/ai/flows/summarize-chat.ts';
+import '@/ai/flows/chat-bot.ts';

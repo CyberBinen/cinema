@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -44,6 +43,11 @@ interface VideoPlayerProps {
   movieTitle?: string;
 }
 
+interface Reaction {
+    id: number;
+    emoji: string;
+}
+
 export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerProps) {
   const { toast } = useToast();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -54,13 +58,33 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [videoTitle, setVideoTitle] = useState('Movie Title');
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  let reactionId = 0;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Set title from schedule, or from uploaded file, or default
-    if (scheduledTitle) {
+    const handleNewReaction = (event: Event) => {
+        const customEvent = event as CustomEvent<string>;
+        const newReaction: Reaction = { id: reactionId++, emoji: customEvent.detail };
+        setReactions(prev => [...prev, newReaction]);
+        setTimeout(() => {
+            setReactions(prev => prev.filter(r => r.id !== newReaction.id));
+        }, 3000);
+    };
+
+    window.addEventListener('emoji-reaction', handleNewReaction);
+    return () => {
+        window.removeEventListener('emoji-reaction', handleNewReaction);
+    }
+  }, []);
+
+  useEffect(() => {
+    const partyTitle = localStorage.getItem(`party-${scheduledTitle?.split(' ').pop()}-title`);
+    if (partyTitle) {
+      setVideoTitle(partyTitle);
+    } else if (scheduledTitle) {
       setVideoTitle(scheduledTitle);
     }
   }, [scheduledTitle]);
@@ -80,12 +104,9 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
 
       if (stream) {
         videoElement.srcObject = stream;
-        videoElement.src = '';
+        // videoElement.src = ''; // This causes issues
         videoElement.play();
         setIsPlaying(true);
-      } else if (videoSrc) {
-        videoElement.srcObject = null;
-        videoElement.src = videoSrc;
       }
       
       return () => {
@@ -93,7 +114,7 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
           videoElement.removeEventListener('timeupdate', handleTimeUpdate);
       }
     }
-  }, [stream, videoSrc]);
+  }, [stream]);
 
 
   const handlePlayPause = () => {
@@ -142,6 +163,9 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
         setStream(null);
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
       }
       setVideoSrc(url);
       setVideoTitle(file.name);
@@ -214,6 +238,7 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
       <div className="relative w-full aspect-video bg-black rounded-lg shadow-2xl overflow-hidden group">
         <video
           ref={videoRef}
+          src={videoSrc || undefined}
           className={`w-full h-full object-contain ${!videoSrc && !stream ? 'hidden' : ''}`}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
@@ -221,6 +246,18 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
           controls={false}
           onClick={handlePlayPause}
         />
+
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            {reactions.map(r => (
+                <div key={r.id} className="absolute text-5xl animate-float-up"
+                    style={{
+                        left: `${Math.random() * 80 + 10}%`,
+                        bottom: '-50px',
+                        animationDuration: `${Math.random() * 2 + 2}s`
+                    }}
+                >{r.emoji}</div>
+            ))}
+        </div>
 
         {!videoSrc && !stream && (
           <>
