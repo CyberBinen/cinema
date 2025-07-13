@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useFormStatus } from 'react-dom';
+import { useFormState, useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,12 +24,13 @@ function SubmitButton() {
 }
 
 type RecommendationFormProps = {
-  formAction: (payload: FormData) => void;
+  formAction: (prevState: any, formData: FormData) => Promise<any>;
 };
 
 export default function RecommendationForm({ formAction }: RecommendationFormProps) {
+  const [state, action] = useFormState(formAction, { message: "", recommendation: undefined, error: undefined });
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={action} className="space-y-6">
       <div className="space-y-2">
         <Label htmlFor="viewingHistory" className="text-lg">
           Viewing History

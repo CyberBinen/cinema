@@ -1,18 +1,38 @@
 'use client';
 
-import React, { useActionState } from 'react';
+import React, { useState } from 'react';
 import RecommendationForm from '@/components/cinesync/recommendation-form';
 import RecommendationResult from '@/components/cinesync/recommendation-result';
 import type { RecommendFilmOutput } from '@/ai/flows/recommend-film';
-import { getFilmRecommendation } from '@/app/actions';
+import { getFilmRecommendation, searchForFilm } from '@/app/actions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Clapperboard, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import MovieSearchForm from '@/components/cinesync/movie-search-form';
+
 
 export default function RecommendPage() {
-  const initialState = { message: "", recommendation: undefined, error: undefined };
-  const [state, formAction] = useActionState(getFilmRecommendation, initialState);
+  const [recommendation, setRecommendation] = useState<RecommendFilmOutput | undefined>(undefined);
+
+  const handleRecommendation = async (prevState: any, formData: FormData) => {
+    const result = await getFilmRecommendation(prevState, formData);
+    if(result.recommendation) {
+        setRecommendation(result.recommendation);
+    }
+    // You might want to handle errors here, e.g. show a toast
+    return result;
+  }
+
+  const handleSearch = async (prevState: any, formData: FormData) => {
+    const result = await searchForFilm(prevState, formData);
+    if(result.recommendation) {
+        setRecommendation(result.recommendation);
+    }
+    // You might want to handle errors here, e.g. show a toast
+    return result;
+  }
 
   return (
     <div className="flex min-h-screen w-full bg-slate-800" style={{backgroundColor: "hsl(0, 0%, 20%)"}}>
@@ -29,12 +49,34 @@ export default function RecommendPage() {
                 <Clapperboard className="w-8 h-8 text-accent" />
                 <div>
                     <CardTitle className="font-headline text-2xl">Find Your Next Movie</CardTitle>
-                    <CardDescription>Let our AI recommend a film based on your tastes.</CardDescription>
+                    <CardDescription>Let our AI recommend a film, or search for one you have in mind.</CardDescription>
                 </div>
                 </CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-8">
-                    <RecommendationForm formAction={formAction} />
-                    <RecommendationResult result={state.recommendation} />
+                    <div>
+                        <Tabs defaultValue="recommend">
+                            <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="recommend">AI Recommendation</TabsTrigger>
+                                <TabsTrigger value="search">Search Movie</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="recommend">
+                                <Card>
+                                    <CardContent className="pt-6">
+                                        <RecommendationForm formAction={handleRecommendation} />
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                            <TabsContent value="search">
+                                <Card>
+                                    <CardContent className="pt-6">
+                                        <MovieSearchForm formAction={handleSearch} />
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                        </Tabs>
+                    </div>
+
+                    <RecommendationResult result={recommendation} />
                 </CardContent>
             </Card>
         </div>
