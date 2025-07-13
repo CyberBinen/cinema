@@ -7,11 +7,11 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
-const ParticipantVideo = ({ stream, name }: { stream: MediaStream, name: string }) => {
+const ParticipantVideo = ({ stream, name }: { stream: MediaStream | null, name: string }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (videoRef.current) {
+    if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
@@ -33,6 +33,11 @@ export default function ParticipantsPanel() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>(undefined);
   const [isCameraOn, setIsCameraOn] = useState(false);
   const myVideoRef = useRef<HTMLVideoElement>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isCameraOn && myVideoRef.current && localStream) {
@@ -92,8 +97,12 @@ export default function ParticipantsPanel() {
                         </div>
                     )}
                     {/* Mock participants for demonstration */}
-                    <ParticipantVideo stream={new MediaStream()} name="Alex" />
-                    <ParticipantVideo stream={new MediaStream()} name="Maria" />
+                    {isMounted && (
+                      <>
+                        <ParticipantVideo stream={new MediaStream()} name="Alex" />
+                        <ParticipantVideo stream={new MediaStream()} name="Maria" />
+                      </>
+                    )}
 
                     {hasCameraPermission === false && (
                         <Alert variant="destructive" className="col-span-full">
