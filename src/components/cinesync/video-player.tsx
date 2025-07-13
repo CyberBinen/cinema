@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -17,6 +16,7 @@ import {
   Signal,
   ScreenShare,
   Upload,
+  Link as LinkIcon,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -26,30 +26,71 @@ import {
 } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 
-export default function VideoPlayer() {
+function formatTime(seconds: number) {
+    if (isNaN(seconds)) return '00:00';
+    const date = new Date(seconds * 1000);
+    const hh = date.getUTCHours();
+    const mm = date.getUTCMinutes().toString().padStart(2, '0');
+    const ss = date.getUTCSeconds().toString().padStart(2, '0');
+    if (hh) {
+        return `${hh}:${mm}:${ss}`;
+    }
+    return `${mm}:${ss}`;
+}
+
+
+interface VideoPlayerProps {
+  movieTitle?: string;
+}
+
+export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerProps) {
   const { toast } = useToast();
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [videoTitle, setVideoTitle] = useState('Movie Title');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Set title from schedule, or from uploaded file, or default
+    if (scheduledTitle) {
+      setVideoTitle(scheduledTitle);
+    }
+  }, [scheduledTitle]);
+
+  useEffect(() => {
     const videoElement = videoRef.current;
     if (videoElement) {
+      const handleLoadedMetadata = () => {
+        setDuration(videoElement.duration);
+      };
+      const handleTimeUpdate = () => {
+        setCurrentTime(videoElement.currentTime);
+      };
+
+      videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+      videoElement.addEventListener('timeupdate', handleTimeUpdate);
+
       if (stream) {
         videoElement.srcObject = stream;
         videoElement.play();
         setIsPlaying(true);
       } else {
         videoElement.srcObject = null;
-        videoElement.src = videoSrc || '';
+        videoElement.src = videoSrc ?? '';
+      }
+      
+      return () => {
+          videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+          videoElement.removeEventListener('timeupdate', handleTimeUpdate);
       }
     }
-    // This is intentional, we only want to re-run this effect when the stream or videoSrc changes.
   }, [stream, videoSrc]);
 
 
@@ -98,8 +139,16 @@ export default function VideoPlayer() {
       const url = URL.createObjectURL(file);
       setStream(null);
       setVideoSrc(url);
+      setVideoTitle(file.name);
       setIsPlaying(false);
     }
+  };
+  
+  const handleSliderChange = (value: number[]) => {
+      if (videoRef.current) {
+          videoRef.current.currentTime = value[0];
+          setCurrentTime(value[0]);
+      }
   };
 
   const handleUploadClick = () => {
@@ -114,6 +163,7 @@ export default function VideoPlayer() {
       });
       setVideoSrc(null);
       setStream(screenStream);
+      setVideoTitle('Screen Share');
       
       screenStream.getVideoTracks()[0].addEventListener('ended', () => {
         setStream(null);
@@ -126,7 +176,7 @@ export default function VideoPlayer() {
                 title: 'Permission Denied',
                 description: 'You denied the request to share your screen.',
             });
-        } else if (error.name === 'SecurityError') {
+        } else if (error.name === 'SecurityError' || error.name === 'NotAllowedError') {
             toast({
                 variant: 'destructive',
                 title: 'Permission Policy Error',
@@ -142,6 +192,14 @@ export default function VideoPlayer() {
       console.error('Error sharing screen:', error);
     }
   };
+  
+  const handleInvite = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast({
+        title: 'Invite Link Copied!',
+        description: 'The link to this watch party has been copied to your clipboard.',
+    })
+  };
 
   return (
     <TooltipProvider>
@@ -154,6 +212,7 @@ export default function VideoPlayer() {
           onPause={() => setIsPlaying(false)}
           onVolumeChange={(e) => setIsMuted((e.target as HTMLVideoElement).muted)}
           controls={false}
+          onClick={handlePlayPause}
         />
 
         {!videoSrc && !stream && (
@@ -166,7 +225,7 @@ export default function VideoPlayer() {
               data-ai-hint="cinema screen"
             />
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 z-20">
-              <h3 className="text-2xl font-bold text-white mb-6">Start a watch party</h3>
+              <h3 className="text-2xl font-bold text-white mb-6">Host controls</h3>
               <div className="flex gap-4">
                 <Button onClick={handleScreenShare} size="lg">
                   <ScreenShare className="mr-2" /> Share Your Screen
@@ -189,25 +248,29 @@ export default function VideoPlayer() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20 pointer-events-none" />
         
         <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-           <h2 className="text-lg font-headline text-white drop-shadow-lg">Movie Title: A Space Odyssey</h2>
+           <h2 className="text-lg font-headline text-white drop-shadow-lg truncate max-w-sm">{videoTitle}</h2>
            <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={handleInvite} className="text-white hover:bg-white/10 hover:text-white">
+                <LinkIcon className="mr-2"/>
+                Invite
+            </Button>
             <div className="flex items-center gap-2 text-xs text-green-400">
               <ShieldCheck size={16} />
-              <span className="font-medium">Encrypted Stream</span>
+              <span className="font-medium">Host</span>
             </div>
              <div className="flex items-center gap-2 text-xs text-cyan-400">
               <Signal size={16} />
-              <span className="font-medium">Adaptive Quality</span>
+              <span className="font-medium">Good</span>
             </div>
            </div>
         </div>
 
         {(videoSrc || stream) && (
             <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <div className="flex items-center gap-2 mb-2">
-                <div className="text-white text-sm font-mono">1:02:34</div>
-                <Slider defaultValue={[45]} max={100} step={1} className="w-full" />
-                <div className="text-white text-sm font-mono">2:19:00</div>
+            <div className="flex items-center gap-4 mb-2">
+                <div className="text-white text-sm font-mono">{formatTime(currentTime)}</div>
+                <Slider value={[currentTime]} max={duration} step={1} className="w-full" onValueChange={handleSliderChange} />
+                <div className="text-white text-sm font-mono">{formatTime(duration)}</div>
             </div>
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

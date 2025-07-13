@@ -9,13 +9,17 @@ import { getFilmRecommendation } from '@/app/actions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Clapperboard } from 'lucide-react';
 
-export default function MainView() {
+interface MainViewProps {
+  movieTitle?: string;
+}
+
+export default function MainView({ movieTitle }: MainViewProps) {
   const initialState = { message: "", recommendation: undefined, error: undefined };
   const [state, formAction] = useActionState(getFilmRecommendation, initialState);
 
   return (
     <div className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-8">
-      <VideoPlayer />
+      <VideoPlayer movieTitle={movieTitle} />
       <Card>
         <CardHeader className="flex flex-row items-center gap-4">
           <Clapperboard className="w-8 h-8 text-accent" />
