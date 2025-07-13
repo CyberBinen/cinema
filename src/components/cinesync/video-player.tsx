@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -34,6 +34,20 @@ export default function VideoPlayer() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (videoElement) {
+      if (stream) {
+        videoElement.srcObject = stream;
+        videoElement.play();
+        setIsPlaying(true);
+      } else {
+        videoElement.srcObject = null;
+        videoElement.src = videoSrc || '';
+      }
+    }
+  }, [stream, videoSrc]);
+
   const handlePlayPause = () => {
     if (videoRef.current) {
       if (isPlaying) {
@@ -53,12 +67,17 @@ export default function VideoPlayer() {
   };
 
   const handleFullscreen = () => {
+    const videoContainer = videoRef.current?.parentElement;
+    if (!videoContainer) return;
+
     if (!document.fullscreenElement) {
-      videoRef.current?.parentElement?.requestFullscreen();
-      setIsFullscreen(true);
+        videoContainer.requestFullscreen();
+        setIsFullscreen(true);
     } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+        setIsFullscreen(false);
+      }
     }
   };
   
@@ -84,16 +103,9 @@ export default function VideoPlayer() {
       });
       setVideoSrc(null);
       setStream(screenStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = screenStream;
-        videoRef.current.play();
-        setIsPlaying(true);
-      }
+      
       screenStream.getVideoTracks()[0].addEventListener('ended', () => {
         setStream(null);
-        if (videoRef.current) {
-            videoRef.current.srcObject = null;
-        }
         setIsPlaying(false);
       });
     } catch (error) {
@@ -106,7 +118,6 @@ export default function VideoPlayer() {
       <div className="relative w-full aspect-video bg-black rounded-lg shadow-2xl overflow-hidden group">
         <video
           ref={videoRef}
-          src={videoSrc || ''}
           className={`w-full h-full object-contain ${!videoSrc && !stream ? 'hidden' : ''}`}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
@@ -143,7 +154,7 @@ export default function VideoPlayer() {
           </>
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20 pointer-events-none" />
         
         <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
            <h2 className="text-lg font-headline text-white drop-shadow-lg">Movie Title: A Space Odyssey</h2>
