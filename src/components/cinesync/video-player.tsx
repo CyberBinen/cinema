@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -79,11 +80,12 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
 
       if (stream) {
         videoElement.srcObject = stream;
+        videoElement.src = '';
         videoElement.play();
         setIsPlaying(true);
-      } else {
+      } else if (videoSrc) {
         videoElement.srcObject = null;
-        videoElement.src = videoSrc ?? '';
+        videoElement.src = videoSrc;
       }
       
       return () => {
@@ -137,7 +139,10 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
     const file = event.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      setStream(null);
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        setStream(null);
+      }
       setVideoSrc(url);
       setVideoTitle(file.name);
       setIsPlaying(false);
@@ -161,7 +166,10 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
         video: true,
         audio: true,
       });
-      setVideoSrc(null);
+      if (videoSrc) {
+        URL.revokeObjectURL(videoSrc);
+        setVideoSrc(null);
+      }
       setStream(screenStream);
       setVideoTitle('Screen Share');
       
@@ -206,7 +214,6 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
       <div className="relative w-full aspect-video bg-black rounded-lg shadow-2xl overflow-hidden group">
         <video
           ref={videoRef}
-          src={videoSrc ?? undefined}
           className={`w-full h-full object-contain ${!videoSrc && !stream ? 'hidden' : ''}`}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
@@ -218,10 +225,10 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
         {!videoSrc && !stream && (
           <>
             <Image
-              src="https://placehold.co/1920x1080/000000/ffffff.png"
+              src="https://placehold.co/1920x1080.png"
               alt="Movie placeholder"
               fill
-              objectFit="cover"
+              className="object-cover"
               data-ai-hint="cinema screen"
             />
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 z-20">

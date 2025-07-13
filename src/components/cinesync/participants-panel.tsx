@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -32,12 +33,17 @@ export default function ParticipantsPanel() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>(undefined);
   const [isCameraOn, setIsCameraOn] = useState(false);
-  const [isMicOn, setIsMicOn] = useState(true);
+  const [isMicOn, setIsMicOn] = useState(false);
   const myVideoRef = useRef<HTMLVideoElement>(null);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
+    return () => {
+        if(localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+    }
   }, []);
 
   useEffect(() => {
@@ -47,17 +53,21 @@ export default function ParticipantsPanel() {
   }, [isCameraOn, localStream]);
 
   const handleToggleCamera = async () => {
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+    if (isCameraOn) {
+      if (localStream) {
+          localStream.getTracks().forEach(track => track.stop());
+      }
       setLocalStream(null);
       setIsCameraOn(false);
+      setIsMicOn(false);
       if(myVideoRef.current) myVideoRef.current.srcObject = null;
+
     } else {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         setLocalStream(stream);
         setIsCameraOn(true);
-        setIsMicOn(true); // Default mic to on when camera turns on
+        setIsMicOn(true);
         setHasCameraPermission(true);
       } catch (error) {
         console.error('Error accessing camera:', error);
