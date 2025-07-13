@@ -1,5 +1,7 @@
 import ScheduleForm from '@/components/cinesync/schedule-form';
-import { Clapperboard } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Clapperboard, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 
 export default function Home() {
   return (
@@ -14,6 +16,14 @@ export default function Home() {
               <p className="text-muted-foreground">Schedule your next watch party.</p>
            </div>
           <ScheduleForm />
+           <div className="mt-8 text-center">
+              <Button variant="ghost" asChild>
+                <Link href="/recommend">
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Looking for something to watch? Get a recommendation
+                </Link>
+              </Button>
+            </div>
         </div>
       </main>
     </div>
