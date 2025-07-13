@@ -9,6 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import { generatePoster } from '@/ai/flows/generate-poster';
 import {z} from 'genkit';
 
 const RecommendFilmInputSchema = z.object({
@@ -28,6 +29,7 @@ const RecommendFilmOutputSchema = z.object({
   genre: z.string().describe('The genre of the recommended film.'),
   streamingService: z.string().describe('The streaming service where the film is available.'),
   shortDescription: z.string().describe('A short description of the film.'),
+  posterDataUri: z.string().describe("The generated movie poster as a data URI.")
 });
 export type RecommendFilmOutput = z.infer<typeof RecommendFilmOutputSchema>;
 
@@ -35,10 +37,15 @@ export async function recommendFilm(input: RecommendFilmInput): Promise<Recommen
   return recommendFilmFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'recommendFilmPrompt',
+const filmDetailsPrompt = ai.definePrompt({
+  name: 'recommendFilmDetailsPrompt',
   input: {schema: RecommendFilmInputSchema},
-  output: {schema: RecommendFilmOutputSchema},
+  output: {schema: z.object({
+    title: z.string().describe('The title of the recommended film.'),
+    genre: z.string().describe('The genre of the recommended film.'),
+    streamingService: z.string().describe('The streaming service where the film is available.'),
+    shortDescription: z.string().describe('A short description of the film.'),
+  })},
   prompt: `You are a film expert. Given a user's viewing history and current
 preferences, you will recommend a film that they might enjoy watching.
 
@@ -55,7 +62,16 @@ const recommendFilmFlow = ai.defineFlow(
     outputSchema: RecommendFilmOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    const { output: filmDetails } = await filmDetailsPrompt(input);
+    if (!filmDetails) {
+      throw new Error("Failed to get film details.");
+    }
+    
+    const { posterDataUri } = await generatePoster(filmDetails);
+
+    return {
+      ...filmDetails,
+      posterDataUri,
+    };
   }
 );

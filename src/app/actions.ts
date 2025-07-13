@@ -4,6 +4,7 @@ import { recommendFilm, RecommendFilmInput, RecommendFilmOutput } from "@/ai/flo
 import { searchFilm, SearchFilmInput, SearchFilmOutput } from "@/ai/flows/search-film";
 import { summarizeChat, SummarizeChatInput, SummarizeChatOutput } from "@/ai/flows/summarize-chat";
 import { chatBot, ChatBotInput, ChatBotOutput } from "@/ai/flows/chat-bot";
+import { generateDiscussionStarters, GenerateDiscussionStartersInput, GenerateDiscussionStartersOutput } from "@/ai/flows/generate-discussion-starters";
 import { z } from "zod";
 
 const recommendFilmActionSchema = z.object({
@@ -22,6 +23,10 @@ const summarizeChatActionSchema = z.object({
 const chatBotActionSchema = z.object({
     movieTitle: z.string(),
     question: z.string().min(1, "Question cannot be empty."),
+});
+
+const discussionStartersActionSchema = z.object({
+    movieTitle: z.string(),
 });
 
 
@@ -49,6 +54,7 @@ export async function getFilmRecommendation(
     const result = await recommendFilm(validatedFields.data as RecommendFilmInput);
     return { message: "success", recommendation: result };
   } catch (e) {
+    console.error(e);
     return { message: "error", error: "Something went wrong with the AI. Please try again." };
   }
 }
@@ -77,6 +83,7 @@ export async function searchForFilm(
         const result = await searchFilm({ title: validatedFields.data.movieTitle });
         return { message: "success", recommendation: result };
     } catch(e) {
+        console.error(e);
         return { message: "error", error: "Something went wrong with the AI. Please try again." };
     }
 }
@@ -123,6 +130,26 @@ export async function getTriviaAnswer(
      try {
         const result = await chatBot(validatedFields.data);
         return { answer: result.answer };
+    } catch(e) {
+        return { error: "Something went wrong with the AI. Please try again." };
+    }
+}
+
+export async function getDiscussionStarters(
+  input: GenerateDiscussionStartersInput
+): Promise<{
+    questions?: string[];
+    error?: string;
+}> {
+    const validatedFields = discussionStartersActionSchema.safeParse(input);
+
+    if (!validatedFields.success) {
+        return { error: "Validation failed" };
+    }
+
+    try {
+        const result = await generateDiscussionStarters(validatedFields.data);
+        return { questions: result.questions };
     } catch(e) {
         return { error: "Something went wrong with the AI. Please try again." };
     }

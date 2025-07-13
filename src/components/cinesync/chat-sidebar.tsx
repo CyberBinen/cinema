@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Clapperboard, Send, Users, MessageSquareQuote, Loader2, Bot, SmilePlus } from 'lucide-react';
+import { Clapperboard, Send, Users, MessageSquareQuote, Loader2, Bot, SmilePlus, Mic } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
 import { getChatSummary, getTriviaAnswer } from '@/app/actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -87,6 +87,28 @@ export default function ChatSidebar({ movieTitle }: { movieTitle: string }) {
   const [summary, setSummary] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const handleDiscussionStarters = (event: Event) => {
+        const customEvent = event as CustomEvent<string[]>;
+        const questions = customEvent.detail;
+        
+        const botMessage: Message = {
+          user: 'CineSync Bot',
+          avatar: 'https://placehold.co/40x40.png',
+          aiHint: 'robot face',
+          text: `That was a great movie! Here are some questions to get the discussion going:\n- ${questions.join('\n- ')}`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isBot: true,
+        };
+        setMessages(prev => [...prev, botMessage]);
+    };
+
+    window.addEventListener('discussion-starters', handleDiscussionStarters);
+    return () => {
+        window.removeEventListener('discussion-starters', handleDiscussionStarters);
+    };
+  }, []);
 
   // Chat Summary Action
   const [summaryState, summaryAction] = useActionState(getChatSummary, { summary: undefined, error: undefined });
@@ -177,7 +199,7 @@ export default function ChatSidebar({ movieTitle }: { movieTitle: string }) {
               </Alert>
             )}
           {messages.map((msg, index) => (
-            <div
+             <div
               key={index}
               className={`flex items-start gap-3 ${
                 msg.isYou ? 'flex-row-reverse' : ''
@@ -202,7 +224,7 @@ export default function ChatSidebar({ movieTitle }: { movieTitle: string }) {
                   }`}
                 >
                   <p className="text-sm font-bold">{msg.user}</p>
-                  <p className="text-sm">{msg.text}</p>
+                  <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
                 </div>
                  <span className="text-xs text-muted-foreground mt-1">{msg.time}</span>
               </div>

@@ -9,6 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import { generatePoster } from '@/ai/flows/generate-poster';
 import {z} from 'genkit';
 
 const SearchFilmInputSchema = z.object({
@@ -22,6 +23,7 @@ const SearchFilmOutputSchema = z.object({
   genre: z.string().describe('The genre of the film.'),
   streamingService: z.string().describe('The streaming service where the film is available.'),
   shortDescription: z.string().describe('A short description of the film.'),
+  posterDataUri: z.string().describe("The generated movie poster as a data URI.")
 });
 export type SearchFilmOutput = z.infer<typeof SearchFilmOutputSchema>;
 
@@ -30,10 +32,15 @@ export async function searchFilm(input: SearchFilmInput): Promise<SearchFilmOutp
   return searchFilmFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'searchFilmPrompt',
+const filmDetailsPrompt = ai.definePrompt({
+  name: 'searchFilmDetailsPrompt',
   input: {schema: SearchFilmInputSchema},
-  output: {schema: SearchFilmOutputSchema},
+  output: {schema: z.object({
+      title: z.string().describe('The title of the film.'),
+      genre: z.string().describe('The genre of the film.'),
+      streamingService: z.string().describe('The streaming service where the film is available.'),
+      shortDescription: z.string().describe('A short description of the film.'),
+  })},
   prompt: `You are a film expert. Given a movie title, find information about that specific movie.
 If you cannot find the movie, just make your best guess based on the title.
 
@@ -49,7 +56,16 @@ const searchFilmFlow = ai.defineFlow(
     outputSchema: SearchFilmOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    const { output: filmDetails } = await filmDetailsPrompt(input);
+    if (!filmDetails) {
+        throw new Error("Failed to get film details.");
+    }
+
+    const { posterDataUri } = await generatePoster(filmDetails);
+
+    return {
+        ...filmDetails,
+        posterDataUri,
+    };
   }
 );

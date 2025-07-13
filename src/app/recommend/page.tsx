@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useTransition } from 'react';
 import RecommendationForm from '@/components/cinesync/recommendation-form';
 import RecommendationResult from '@/components/cinesync/recommendation-result';
 import type { RecommendFilmOutput } from '@/ai/flows/recommend-film';
@@ -15,23 +15,28 @@ import MovieSearchForm from '@/components/cinesync/movie-search-form';
 
 export default function RecommendPage() {
   const [recommendation, setRecommendation] = useState<RecommendFilmOutput | undefined>(undefined);
+  const [isPending, startTransition] = useTransition();
 
   const handleRecommendation = async (prevState: any, formData: FormData) => {
-    const result = await getFilmRecommendation(prevState, formData);
-    if(result.recommendation) {
-        setRecommendation(result.recommendation);
-    }
-    // You might want to handle errors here, e.g. show a toast
-    return result;
+    startTransition(async () => {
+      const result = await getFilmRecommendation(prevState, formData);
+      if(result.recommendation) {
+          setRecommendation(result.recommendation);
+      }
+      // You might want to handle errors here, e.g. show a toast
+    });
+    return { message: "pending" };
   }
 
   const handleSearch = async (prevState: any, formData: FormData) => {
-    const result = await searchForFilm(prevState, formData);
-    if(result.recommendation) {
-        setRecommendation(result.recommendation);
-    }
-    // You might want to handle errors here, e.g. show a toast
-    return result;
+    startTransition(async () => {
+        const result = await searchForFilm(prevState, formData);
+        if(result.recommendation) {
+            setRecommendation(result.recommendation);
+        }
+        // You might want to handle errors here, e.g. show a toast
+    });
+    return { message: "pending" };
   }
 
   return (
@@ -76,7 +81,7 @@ export default function RecommendPage() {
                         </Tabs>
                     </div>
 
-                    <RecommendationResult result={recommendation} />
+                    <RecommendationResult result={recommendation} pending={isPending} />
                 </CardContent>
             </Card>
         </div>

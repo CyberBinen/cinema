@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -25,6 +25,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
+import { getDiscussionStarters } from '@/app/actions';
 
 function formatTime(seconds: number) {
     if (isNaN(seconds)) return '00:00';
@@ -64,6 +65,20 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handleDiscussionStart = useCallback(async (title: string) => {
+    const result = await getDiscussionStarters({ movieTitle: title });
+    if (result.questions) {
+      const event = new CustomEvent('discussion-starters', { detail: result.questions });
+      window.dispatchEvent(event);
+    } else if (result.error) {
+      toast({
+        variant: 'destructive',
+        title: 'Could not generate discussion starters',
+        description: result.error,
+      });
+    }
+  }, [toast]);
+
   useEffect(() => {
     const handleNewReaction = (event: Event) => {
         const customEvent = event as CustomEvent<string>;
@@ -98,13 +113,18 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
       const handleTimeUpdate = () => {
         setCurrentTime(videoElement.currentTime);
       };
+      const handleEnded = () => {
+        if (videoTitle && videoTitle !== 'Screen Share' && videoTitle !== 'Movie Title') {
+          handleDiscussionStart(videoTitle);
+        }
+      }
 
       videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
       videoElement.addEventListener('timeupdate', handleTimeUpdate);
+      videoElement.addEventListener('ended', handleEnded);
 
       if (stream) {
         videoElement.srcObject = stream;
-        // videoElement.src = ''; // This causes issues
         videoElement.play();
         setIsPlaying(true);
       }
@@ -112,9 +132,10 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
       return () => {
           videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
           videoElement.removeEventListener('timeupdate', handleTimeUpdate);
+          videoElement.removeEventListener('ended', handleEnded);
       }
     }
-  }, [stream]);
+  }, [stream, videoTitle, handleDiscussionStart]);
 
 
   const handlePlayPause = () => {
