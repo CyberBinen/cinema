@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState, useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,7 +31,7 @@ type MovieSearchFormProps = {
 };
 
 export default function MovieSearchForm({ formAction }: MovieSearchFormProps) {
-    const [state, action] = useFormState(formAction, { message: "", recommendation: undefined, error: undefined });
+    const [state, action] = useActionState(formAction, { message: "", recommendation: undefined, error: undefined });
 
   return (
     <form action={action} className="space-y-6">

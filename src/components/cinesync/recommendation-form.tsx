@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState, useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,7 +28,7 @@ type RecommendationFormProps = {
 };
 
 export default function RecommendationForm({ formAction }: RecommendationFormProps) {
-  const [state, action] = useFormState(formAction, { message: "", recommendation: undefined, error: undefined });
+  const [state, action] = useActionState(formAction, { message: "", recommendation: undefined, error: undefined });
   return (
     <form action={action} className="space-y-6">
       <div className="space-y-2">
