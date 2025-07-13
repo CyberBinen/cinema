@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useFormState } from 'react-dom';
+import React, { useActionState } from 'react';
 import VideoPlayer from '@/components/cinesync/video-player';
 import RecommendationForm from '@/components/cinesync/recommendation-form';
 import RecommendationResult from '@/components/cinesync/recommendation-result';
@@ -12,7 +11,7 @@ import { Clapperboard } from 'lucide-react';
 
 export default function MainView() {
   const initialState = { message: "", recommendation: undefined, error: undefined };
-  const [state, formAction] = useFormState(getFilmRecommendation, initialState);
+  const [state, formAction] = useActionState(getFilmRecommendation, initialState);
 
   return (
     <div className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-8">
