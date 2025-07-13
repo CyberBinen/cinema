@@ -32,6 +32,7 @@ export default function ParticipantsPanel() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>(undefined);
   const [isCameraOn, setIsCameraOn] = useState(false);
+  const [isMicOn, setIsMicOn] = useState(true);
   const myVideoRef = useRef<HTMLVideoElement>(null);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -56,6 +57,7 @@ export default function ParticipantsPanel() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         setLocalStream(stream);
         setIsCameraOn(true);
+        setIsMicOn(true); // Default mic to on when camera turns on
         setHasCameraPermission(true);
       } catch (error) {
         console.error('Error accessing camera:', error);
@@ -66,6 +68,15 @@ export default function ParticipantsPanel() {
           description: 'Please enable camera permissions in your browser settings.',
         });
       }
+    }
+  };
+
+  const handleToggleMic = () => {
+    if (localStream) {
+        localStream.getAudioTracks().forEach(track => {
+            track.enabled = !isMicOn;
+        });
+        setIsMicOn(!isMicOn);
     }
   };
 
@@ -80,9 +91,9 @@ export default function ParticipantsPanel() {
                         {isCameraOn ? <VideoOff /> : <Video />}
                         <span className="ml-2">{isCameraOn ? 'Stop Camera' : 'Share Camera'}</span>
                     </Button>
-                     <Button variant="outline" size="sm" disabled>
-                        <MicOff />
-                        <span className="ml-2">Muted</span>
+                     <Button onClick={handleToggleMic} variant="outline" size="sm" disabled={!isCameraOn}>
+                        {isMicOn ? <Mic /> : <MicOff />}
+                        <span className="ml-2">{isMicOn ? 'Mute' : 'Unmute'}</span>
                     </Button>
                 </div>
             </CardHeader>
@@ -99,8 +110,8 @@ export default function ParticipantsPanel() {
                     {/* Mock participants for demonstration */}
                     {isMounted && (
                       <>
-                        <ParticipantVideo stream={new MediaStream()} name="Alex" />
-                        <ParticipantVideo stream={new MediaStream()} name="Maria" />
+                        <ParticipantVideo stream={null} name="Alex" />
+                        <ParticipantVideo stream={null} name="Maria" />
                       </>
                     )}
 
