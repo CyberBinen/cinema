@@ -53,7 +53,7 @@ interface Reaction {
 
 const IS_HOST = true; // For this prototype, we'll assume the user is the host.
 
-export default function VideoPlayer({ movieTitle: scheduledTitle, partyId }: VideoPlayerProps) {
+export default function VideoPlayer({ movieTitle, partyId }: VideoPlayerProps) {
   const { toast } = useToast();
   
   const [playerState, setPlayerState] = useState<PlayerState>({
@@ -64,7 +64,7 @@ export default function VideoPlayer({ movieTitle: scheduledTitle, partyId }: Vid
     stream: null,
     duration: 0,
     currentTime: 0,
-    videoTitle: 'Movie Title',
+    videoTitle: movieTitle || 'Movie Title',
   });
   
   const [reactions, setReactions] = useState<Reaction[]>([]);
@@ -88,6 +88,13 @@ export default function VideoPlayer({ movieTitle: scheduledTitle, partyId }: Vid
       });
     }
   }, [toast]);
+
+  useEffect(() => {
+    if (movieTitle) {
+      updateState({ videoTitle: movieTitle });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movieTitle]);
 
   useEffect(() => {
     if (!partyId) return;
@@ -226,7 +233,7 @@ export default function VideoPlayer({ movieTitle: scheduledTitle, partyId }: Vid
       
       screenStream.getVideoTracks()[0].addEventListener('ended', () => {
         stopCurrentStream();
-        updateState({ isPlaying: false, stream: null, videoTitle: 'Movie Title' });
+        updateState({ isPlaying: false, stream: null, videoTitle: movieTitle || 'Movie Title' });
       });
 
     } catch (error: any) {

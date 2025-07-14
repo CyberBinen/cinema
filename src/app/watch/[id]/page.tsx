@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import ChatSidebar from '@/components/cinesync/chat-sidebar';
 import MainView from '@/components/cinesync/main-view';
@@ -12,9 +13,16 @@ export default function WatchPage() {
   const theme = searchParams.get('theme');
   const id = params.id as string;
 
-  // In a real app, you'd fetch the schedule details using params.id
-  // For now, we'll pass a mock title based on the ID.
-  const movieTitle = `Movie for party ${id}`;
+  const [movieTitle, setMovieTitle] = useState('Loading movie...');
+
+  useEffect(() => {
+    // In a real app, you'd fetch schedule details from a database using the ID.
+    // For this prototype, we're retrieving it from localStorage.
+    if (typeof window !== 'undefined' && id) {
+      const storedTitle = localStorage.getItem(`party-${id}-title`);
+      setMovieTitle(storedTitle || `Watch Party ${id}`);
+    }
+  }, [id]);
 
   const themeBackgrounds: { [key: string]: string } = {
     horror: 'https://placehold.co/1920x1080/000000/ffffff.png?text=Horror',
