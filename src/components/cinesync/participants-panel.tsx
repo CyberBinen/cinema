@@ -20,6 +20,11 @@ const ParticipantVideo = ({ stream, name }: { stream: MediaStream | null, name: 
   return (
     <div className="relative aspect-video bg-card rounded-md overflow-hidden border">
       <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+      {!stream && (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+            <VideoOff className="w-8 h-8 text-muted-foreground" />
+        </div>
+      )}
       <div className="absolute bottom-2 left-2 bg-black/50 text-white text-sm px-2 py-1 rounded">
         {name}
       </div>
@@ -35,16 +40,15 @@ export default function ParticipantsPanel() {
   const [isCameraOn, setIsCameraOn] = useState(false);
   const [isMicOn, setIsMicOn] = useState(false);
   const myVideoRef = useRef<HTMLVideoElement>(null);
-  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
+    // Cleanup stream when component unmounts
     return () => {
         if(localStream) {
             localStream.getTracks().forEach(track => track.stop());
         }
     }
-  }, []);
+  }, [localStream]);
 
   useEffect(() => {
     if (isCameraOn && myVideoRef.current && localStream) {
@@ -101,7 +105,7 @@ export default function ParticipantsPanel() {
                         {isCameraOn ? <VideoOff /> : <Video />}
                         <span className="ml-2">{isCameraOn ? 'Stop Camera' : 'Share Camera'}</span>
                     </Button>
-                     <Button onClick={handleToggleMic} variant="outline" size="sm" disabled={!isCameraOn}>
+                     <Button onClick={handleToggleMic} variant={isMicOn ? "outline" : "secondary"} size="sm" disabled={!isCameraOn}>
                         {isMicOn ? <Mic /> : <MicOff />}
                         <span className="ml-2">{isMicOn ? 'Mute' : 'Unmute'}</span>
                     </Button>
@@ -109,23 +113,20 @@ export default function ParticipantsPanel() {
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {localStream && isCameraOn && (
-                         <div className="relative aspect-video bg-card rounded-md overflow-hidden border border-primary">
+                    {isCameraOn && (
+                         <div className="relative aspect-video bg-card rounded-md overflow-hidden border-2 border-primary">
                             <video ref={myVideoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                            <div className="absolute bottom-2 left-2 bg-black/50 text-white text-sm px-2 py-1 rounded">
+                            <div className="absolute bottom-2 left-2 bg-black/50 text-white text-sm px-2 py-1 rounded flex items-center gap-1">
                                 You
+                                {!isMicOn && <MicOff className="w-3 h-3" />}
                             </div>
                         </div>
                     )}
                     {/* Mock participants for demonstration */}
-                    {isMounted && (
-                      <>
-                        <ParticipantVideo stream={null} name="Alex" />
-                        <ParticipantVideo stream={null} name="Maria" />
-                      </>
-                    )}
+                    <ParticipantVideo stream={null} name="Alex" />
+                    <ParticipantVideo stream={null} name="Maria" />
 
-                    {hasCameraPermission === false && (
+                    {hasCameraPermission === false && !isCameraOn && (
                         <Alert variant="destructive" className="col-span-full">
                             <AlertTitle>Camera Access Required</AlertTitle>
                             <AlertDescription>
