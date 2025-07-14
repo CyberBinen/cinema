@@ -8,10 +8,11 @@ import ParticipantsPanel from '@/components/cinesync/participants-panel';
 export default function WatchPage({ params }: { params: { id: string } }) {
   const searchParams = useSearchParams();
   const theme = searchParams.get('theme');
+  const { id } = params;
 
   // In a real app, you'd fetch the schedule details using params.id
   // For now, we'll pass a mock title based on the ID.
-  const movieTitle = `Movie for party ${params.id}`;
+  const movieTitle = `Movie for party ${id}`;
 
   const themeBackgrounds: { [key: string]: string } = {
     horror: 'https://placehold.co/1920x1080/000000/ffffff.png?text=Horror',
