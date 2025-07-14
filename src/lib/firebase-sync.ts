@@ -13,8 +13,8 @@ export interface PlayerState {
     videoTitle: string;
 }
 
-let firebaseApp: FirebaseApp;
-let database: Database;
+let firebaseApp: FirebaseApp | null = null;
+let database: Database | null = null;
 let partyRef;
 
 const firebaseConfig = {
@@ -27,27 +27,36 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-try {
-  firebaseApp = getApp();
-} catch (e) {
-  firebaseApp = initializeApp(firebaseConfig);
+// Only initialize Firebase if the necessary config is provided
+if (firebaseConfig.projectId && firebaseConfig.databaseURL) {
+    try {
+      firebaseApp = getApp();
+    } catch (e) {
+      firebaseApp = initializeApp(firebaseConfig);
+    }
+    
+    if(firebaseApp) {
+        database = getDatabase(firebaseApp);
+    }
+} else {
+    console.warn("Firebase config is missing. Real-time sync features will be disabled. Please update your .env.local file.");
 }
 
-database = getDatabase(firebaseApp);
 
 export const initializeSync = (partyId: string) => {
+  if (!database) return;
   partyRef = ref(database, `parties/${partyId}`);
 };
 
 export const syncState = (state: PlayerState) => {
-  if (!partyRef) return;
+  if (!partyRef || !database) return;
   // We don't sync the stream object as it's not serializable
   const { stream, ...syncableState } = state;
   set(partyRef, syncableState);
 };
 
 export const onStateChange = (callback: (state: PlayerState) => void) => {
-  if (!partyRef) return () => {};
+  if (!partyRef || !database) return () => {};
   
   const unsubscribe = onValue(partyRef, (snapshot) => {
     const data = snapshot.val();
