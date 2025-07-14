@@ -9,7 +9,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Upload,
   Play,
@@ -31,7 +41,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { getSoundtrackSuggestion, getSongLyrics } from '@/app/actions';
 import { useFormStatus } from 'react-dom';
-import type { jsmediatags as JsMediaTags } from 'jsmediatags/types';
 
 interface Track {
   file?: File;
@@ -78,18 +87,12 @@ export function MusicPlayer() {
   const [isMuted, setIsMuted] = useState(false);
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [isLyricsLoading, startLyricsTransition] = useTransition();
-  const jsMediaTagsRef = useRef<JsMediaTags | null>(null);
+  const [isLyricDialogOpen, setIsLyricDialogOpen] = useState(false);
+  const [lyricsFormData, setLyricsFormData] = useState({ title: '', artist: ''});
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Dynamically import jsmediatags only on the client side
-    import('jsmediatags').then(module => {
-      jsMediaTagsRef.current = module.default;
-    });
-  }, []);
 
   const currentTrack = currentTrackIndex !== null ? playlist[currentTrackIndex] : null;
 
@@ -152,46 +155,21 @@ export function MusicPlayer() {
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (!files || !jsMediaTagsRef.current) return;
+    if (!files) return;
 
-    const jsmediatags = jsMediaTagsRef.current;
+    const newTracks = Array.from(files).map(file => ({
+        file,
+        name: file.name.replace(/\.[^/.]+$/, ""),
+        url: URL.createObjectURL(file),
+        isAiSuggestion: false,
+    }));
 
-    const newTracksPromises = Array.from(files).map(file => {
-      return new Promise<Track>((resolve) => {
-        jsmediatags.read(file, {
-          onSuccess: (tag) => {
-            const { title, artist } = tag.tags;
-            resolve({
-              file,
-              name: title && artist ? `${title} by ${artist}` : file.name.replace(/\.[^/.]+$/, ""),
-              title: title,
-              artist: artist,
-              url: URL.createObjectURL(file),
-              isAiSuggestion: false,
-            });
-          },
-          onError: (error) => {
-            console.error('Error reading media tags:', error);
-            // Fallback to filename
-            resolve({
-              file,
-              name: file.name.replace(/\.[^/.]+$/, ""),
-              url: URL.createObjectURL(file),
-              isAiSuggestion: false,
-            });
-          }
-        });
-      });
-    });
-
-    Promise.all(newTracksPromises).then(newTracks => {
-      setPlaylist(prev => [...prev, ...newTracks]);
-      if (currentTrackIndex === null && newTracks.length > 0) {
-        setCurrentTrackIndex(playlist.length);
-      }
-      toast({
-          title: `${newTracks.length} song(s) added to the playlist!`,
-      });
+    setPlaylist(prev => [...prev, ...newTracks]);
+    if (currentTrackIndex === null && newTracks.length > 0) {
+      setCurrentTrackIndex(playlist.length);
+    }
+    toast({
+        title: `${newTracks.length} song(s) added to the playlist!`,
     });
   };
 
@@ -236,19 +214,38 @@ export function MusicPlayer() {
   }
   
   const handleFetchLyrics = () => {
-    if (!currentTrack || !currentTrack.title || !currentTrack.artist) {
+    if (!currentTrack) return;
+    if (currentTrack.title && currentTrack.artist) {
+        fetchLyrics(currentTrack.title, currentTrack.artist);
+    } else {
+        setLyricsFormData({ title: currentTrack.name, artist: '' });
+        setIsLyricDialogOpen(true);
+    }
+  }
+
+  const handleLyricDialogSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchLyrics(lyricsFormData.title, lyricsFormData.artist);
+    setIsLyricDialogOpen(false);
+  }
+
+  const fetchLyrics = (title: string, artist: string) => {
+    if (!title || !artist) {
         toast({
             variant: 'destructive',
-            title: 'Cannot Fetch Lyrics',
-            description: 'Could not determine song title and artist from the file metadata.',
+            title: 'Missing Information',
+            description: 'Please provide both a title and an artist to fetch lyrics.',
         });
         return;
     }
-
     startLyricsTransition(async () => {
-        const result = await getSongLyrics({ title: currentTrack.title as string, artist: currentTrack.artist as string });
+        const result = await getSongLyrics({ title, artist });
         if (result.lyrics) {
             setLyrics(result.lyrics);
+            if (currentTrack) {
+                currentTrack.title = title;
+                currentTrack.artist = artist;
+            }
         } else {
             setLyrics('Lyrics not found.');
             toast({ variant: 'destructive', title: 'Error', description: result.error || 'Could not fetch lyrics.' });
@@ -265,6 +262,7 @@ export function MusicPlayer() {
   };
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="font-headline text-2xl flex items-center gap-3">
@@ -386,5 +384,31 @@ export function MusicPlayer() {
         </div>
       </CardContent>
     </Card>
+        <Dialog open={isLyricDialogOpen} onOpenChange={setIsLyricDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Enter Song Details</DialogTitle>
+                    <DialogDescription>
+                        We need the song title and artist to find the lyrics for you.
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleLyricDialogSubmit}>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="title" className="text-right">Title</Label>
+                            <Input id="title" value={lyricsFormData.title} onChange={(e) => setLyricsFormData({...lyricsFormData, title: e.target.value })} className="col-span-3" required/>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="artist" className="text-right">Artist</Label>
+                            <Input id="artist" value={lyricsFormData.artist} onChange={(e) => setLyricsFormData({...lyricsFormData, artist: e.target.value })} className="col-span-3" required/>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="submit">Fetch Lyrics</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    </>
   );
 }
