@@ -7,7 +7,7 @@ export default function Home() {
   return (
     <div className="relative flex h-screen w-full items-center justify-center">
       <Image
-        src="https://placehold.co/1920x1080.png"
+        src="https://images.unsplash.com/photo-1574267432553-4b4628081c31"
         alt="A cozy, modern living room with a large screen, set up for a movie night"
         fill
         className="object-cover brightness-50"
