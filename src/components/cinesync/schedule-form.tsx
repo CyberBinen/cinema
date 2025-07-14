@@ -8,23 +8,50 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Film, Ghost, Rocket, Smile } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+export interface ScheduledParty {
+  id: string;
+  movieTitle: string;
+  date: string;
+  theme: string;
+}
 
 export default function ScheduleForm() {
   const router = useRouter();
+  const { toast } = useToast();
   const [theme, setTheme] = useState('default');
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const movieTitle = formData.get('movieTitle') as string;
+    const scheduleTime = formData.get('scheduleTime') as string;
+    
     // In a real app, you would save this to a database and get a unique ID.
     // For this prototype, we'll generate a random-ish ID.
     const partyId = Math.random().toString(36).substring(2, 9);
     
     // We'll store the title in localStorage to pass it to the watch page.
     localStorage.setItem(`party-${partyId}-title`, movieTitle);
+
+    // Save the full party details to our list in localStorage
+    const newParty: ScheduledParty = {
+      id: partyId,
+      movieTitle,
+      date: scheduleTime,
+      theme,
+    };
+
+    const existingParties = JSON.parse(localStorage.getItem('scheduledParties') || '[]') as ScheduledParty[];
+    localStorage.setItem('scheduledParties', JSON.stringify([...existingParties, newParty]));
+
+    toast({
+        title: 'Watch Party Scheduled!',
+        description: `"${movieTitle}" has been added to your list.`,
+    });
     
-    router.push(`/watch/${partyId}?theme=${theme}`);
+    router.push(`/schedule/list`);
   };
 
   return (
@@ -41,7 +68,7 @@ export default function ScheduleForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="scheduleTime">Date & Time</Label>
-            <Input id="scheduleTime" name="scheduleTime" type="datetime-local" required />
+            <Input id="scheduleTime" name="scheduleTime" type="datetime-local" required defaultValue={new Date().toISOString().substring(0, 16)} />
           </div>
            <div className="space-y-3">
             <Label>Choose a Theme (Optional)</Label>
@@ -79,7 +106,7 @@ export default function ScheduleForm() {
         </CardContent>
         <CardFooter>
           <Button type="submit" className="w-full">
-            Create Party & Get Invite Link
+            Schedule Party
           </Button>
         </CardFooter>
       </form>

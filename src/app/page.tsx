@@ -27,9 +27,9 @@ export default function Home() {
 
           <div className="flex flex-col sm:flex-row gap-4 mt-12">
             <Button asChild size="lg">
-              <Link href="/schedule">
+              <Link href="/schedule/list">
                 <Tv className="mr-2" />
-                Create a Watch Party
+                View Watch Parties
               </Link>
             </Button>
             <Button asChild variant="secondary" size="lg">
