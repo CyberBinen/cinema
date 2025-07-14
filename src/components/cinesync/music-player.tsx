@@ -31,7 +31,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { getSoundtrackSuggestion, getSongLyrics } from '@/app/actions';
 import { useFormStatus } from 'react-dom';
-import jsmediatags from 'jsmediatags';
+import * as jsmediatags from 'jsmediatags/dist/jsmediatags';
 
 interface Track {
   file?: File;
