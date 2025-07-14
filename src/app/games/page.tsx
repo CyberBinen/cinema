@@ -1,5 +1,6 @@
+
 'use client';
-import { useState, useTransition, useActionState } from 'react';
+import { useState, useActionState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,19 +12,26 @@ import Image from 'next/image';
 import { useFormStatus } from 'react-dom';
 import { useToast } from '@/hooks/use-toast';
 
+const famousMovies = [
+    "Inception", "The Matrix", "Pulp Fiction", "Forrest Gump", "The Godfather",
+    "The Dark Knight", "Fight Club", "Star Wars: A New Hope", "Jurassic Park", "Titanic",
+    "Avatar", "The Avengers", "Jaws", "E.T. the Extra-Terrestrial", "Back to the Future",
+    "The Lord of the Rings: The Fellowship of the Ring", "Finding Nemo", "Toy Story", "The Lion King", "Spirited Away"
+];
+
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className="w-full">
+    <Button type="submit" disabled={pending} className="w-full max-w-sm">
       {pending ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Generating Game...
+          Starting Game...
         </>
       ) : (
         <>
           <Wand2 className="mr-2" />
-          Generate Poster
+          Start Random Game
         </>
       )}
     </Button>
@@ -36,7 +44,7 @@ export default function GamesPage() {
     const [correctAnswer, setCorrectAnswer] = useState('');
     const [guess, setGuess] = useState('');
     const [showHint, setShowHint] = useState(false);
-    const [gameState, setGameState] = useState<'idle' | 'playing' | 'revealed'>('idle');
+    const [gameState, setGameState] = useState<'idle' | 'loading' | 'playing' | 'revealed'>('idle');
 
     const [state, formAction] = useActionState(getGamePoster, { message: "" });
     
@@ -47,6 +55,13 @@ export default function GamesPage() {
         setShowHint(false);
         setGameState('playing');
         state.message = ""; // Reset message to prevent re-triggering
+    }
+
+    const handleStartGame = (formData: FormData) => {
+        const randomMovie = famousMovies[Math.floor(Math.random() * famousMovies.length)];
+        formData.set('movieTitle', randomMovie);
+        setGameState('loading');
+        formAction(formData);
     }
 
     const handleGuess = (e: React.FormEvent) => {
@@ -77,15 +92,13 @@ export default function GamesPage() {
 
     const getHint = () => {
         const vowels = 'aeiou';
-        const hint = correctAnswer.split('').map(char => vowels.includes(char.toLowerCase()) ? char : '_').join('');
+        const hint = correctAnswer.split('').map(char => {
+            if (char === ' ') return ' ';
+            if (vowels.includes(char.toLowerCase())) return char;
+            return '_';
+        }).join('');
         return hint;
     }
-
-    const famousMovies = [
-        "Inception", "The Matrix", "Pulp Fiction", "Forrest Gump", "The Godfather",
-        "The Dark Knight", "Fight Club", "Star Wars", "Jurassic Park", "Titanic",
-        "Avatar", "The Avengers", "Jaws", "E.T.", "Back to the Future"
-    ];
 
     return (
         <div className="flex min-h-screen w-full" style={{backgroundColor: "hsl(0, 0%, 20%)"}}>
@@ -106,16 +119,19 @@ export default function GamesPage() {
                                 The AI will generate a poster for a famous movie without any text. Can you guess what it is?
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="flex flex-col items-center gap-6">
+                        <CardContent className="flex flex-col items-center justify-center gap-6 min-h-[400px]">
                             {gameState === 'idle' && (
-                                <form action={formAction} className="w-full max-w-sm space-y-4">
-                                     <div className="space-y-2">
-                                        <Label htmlFor="movieTitle">Enter a Famous Movie Title</Label>
-                                        <Input id="movieTitle" name="movieTitle" placeholder="e.g., Star Wars" required />
-                                        <p className="text-sm text-muted-foreground">The AI will create a poster based on this movie.</p>
-                                    </div>
+                                <form action={handleStartGame} className="w-full flex justify-center">
                                     <SubmitButton />
                                 </form>
+                            )}
+                            
+                            {gameState === 'loading' && (
+                                 <div className="flex flex-col items-center gap-4 text-center">
+                                    <Loader2 className="h-12 w-12 animate-spin" />
+                                    <p className="text-muted-foreground">Generating a new movie poster...</p>
+                                    <p className="text-sm text-muted-foreground">This can take a few seconds.</p>
+                                </div>
                             )}
 
                            { (gameState === 'playing' || gameState === 'revealed') && posterUrl && (
@@ -150,8 +166,6 @@ export default function GamesPage() {
                                     )}
                                 </div>
                             )}
-
-                             { state.message === 'pending' && <Loader2 className="h-8 w-8 animate-spin" />}
                         </CardContent>
                     </Card>
                 </div>
