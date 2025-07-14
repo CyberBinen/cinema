@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useActionState, useTransition } from 'react';
+import React, { useState, useRef, useEffect, useActionState } from 'react';
 import {
   Card,
   CardContent,
@@ -9,17 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Upload,
   Play,
@@ -33,13 +23,14 @@ import {
   Wand2,
   Loader2,
   Music4,
-  Mic2
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { getSoundtrackSuggestion, getSongLyrics } from '@/app/actions';
+import { getSoundtrackSuggestion } from '@/app/actions';
 import { useFormStatus } from 'react-dom';
 
 interface Track {
@@ -85,18 +76,15 @@ export function MusicPlayer() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
-  const [lyrics, setLyrics] = useState<string | null>(null);
-  const [isLyricsLoading, startLyricsTransition] = useTransition();
-  const [isLyricDialogOpen, setIsLyricDialogOpen] = useState(false);
-  const [lyricsFormData, setLyricsFormData] = useState({ title: '', artist: ''});
-  
+  const [isMicOn, setIsMicOn] = useState(false);
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
+
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const currentTrack = currentTrackIndex !== null ? playlist[currentTrackIndex] : null;
 
-    // AI Suggestion Action
   const [suggestionState, suggestionAction] = useActionState(getSoundtrackSuggestion, { message: "", suggestions: undefined, error: undefined });
   useEffect(() => {
     if (suggestionState?.suggestions?.songs) {
@@ -149,7 +137,6 @@ export function MusicPlayer() {
         toast({ variant: 'destructive', title: "Cannot play track", description: `${currentTrack.name} is a suggestion and can't be played.`});
         setIsPlaying(false);
     }
-    setLyrics(null); // Clear lyrics when track changes
   }, [currentTrack, toast]);
 
 
@@ -213,44 +200,30 @@ export function MusicPlayer() {
       setCurrentTrackIndex(index);
   }
   
-  const handleFetchLyrics = () => {
-    if (!currentTrack) return;
-    if (currentTrack.title && currentTrack.artist) {
-        fetchLyrics(currentTrack.title, currentTrack.artist);
+  const handleToggleMic = async () => {
+    if (isMicOn) {
+        micStream?.getTracks().forEach(track => track.stop());
+        setMicStream(null);
+        setIsMicOn(false);
     } else {
-        setLyricsFormData({ title: currentTrack.name, artist: '' });
-        setIsLyricDialogOpen(true);
-    }
-  }
-
-  const handleLyricDialogSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchLyrics(lyricsFormData.title, lyricsFormData.artist);
-    setIsLyricDialogOpen(false);
-  }
-
-  const fetchLyrics = (title: string, artist: string) => {
-    if (!title || !artist) {
-        toast({
-            variant: 'destructive',
-            title: 'Missing Information',
-            description: 'Please provide both a title and an artist to fetch lyrics.',
-        });
-        return;
-    }
-    startLyricsTransition(async () => {
-        const result = await getSongLyrics({ title, artist });
-        if (result.lyrics) {
-            setLyrics(result.lyrics);
-            if (currentTrack) {
-                currentTrack.title = title;
-                currentTrack.artist = artist;
-            }
-        } else {
-            setLyrics('Lyrics not found.');
-            toast({ variant: 'destructive', title: 'Error', description: result.error || 'Could not fetch lyrics.' });
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            setMicStream(stream);
+            setIsMicOn(true);
+            toast({
+                title: "Microphone enabled!",
+                description: "You can now sing along. Others will hear you in a future update!",
+            });
+            // In a real app, you'd send this stream to other users via WebRTC
+        } catch (error) {
+            console.error("Error accessing microphone:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Microphone Access Denied',
+                description: 'Please enable microphone permissions in your browser settings.',
+            });
         }
-    });
+    }
   }
 
   const handleInvite = () => {
@@ -270,7 +243,7 @@ export function MusicPlayer() {
           Music Sharing Session
         </CardTitle>
         <CardDescription>
-          Upload songs, get AI suggestions, and sing along with lyrics. Invite friends to listen together.
+          Upload songs, get AI suggestions, and sing along with friends. Invite others to listen together.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid lg:grid-cols-3 gap-6">
@@ -309,8 +282,8 @@ export function MusicPlayer() {
                                     <StepForward />
                                 </Button>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={handleFetchLyrics} disabled={!currentTrack || isLyricsLoading}>
-                                {isLyricsLoading ? <Loader2 className="animate-spin" /> : <Mic2 />}
+                            <Button variant={isMicOn ? "destructive" : "ghost"} size="icon" onClick={handleToggleMic} disabled={!currentTrack}>
+                                {isMicOn ? <MicOff /> : <Mic />}
                             </Button>
                         </div>
                     </div>
@@ -342,22 +315,13 @@ export function MusicPlayer() {
                         )}
                     </ScrollArea>
                 </div>
-                {lyrics ? (
-                    <div className="flex flex-col bg-background/50 p-4 rounded-lg border">
-                        <h3 className="text-lg font-semibold mb-3">Lyrics</h3>
-                        <ScrollArea className="flex-1 bg-muted/30 rounded-md min-h-[200px] p-4">
-                           <pre className="whitespace-pre-wrap text-sm font-sans">{lyrics}</pre>
-                        </ScrollArea>
-                    </div>
-                ) : (
-                     <div className="flex flex-col bg-background/50 p-4 rounded-lg border">
-                        <h3 className="text-lg font-semibold mb-3">AI Soundtrack Suggester</h3>
-                        <form action={suggestionAction} className="space-y-4">
-                            <Textarea name="description" placeholder="Describe a mood or theme, e.g., 'upbeat 80s synth for a workout' or 'calm instrumental for studying'." className="min-h-[150px] bg-background" required />
-                            <AiSubmitButton />
-                        </form>
-                    </div>
-                )}
+                 <div className="flex flex-col bg-background/50 p-4 rounded-lg border">
+                    <h3 className="text-lg font-semibold mb-3">AI Soundtrack Suggester</h3>
+                    <form action={suggestionAction} className="space-y-4">
+                        <Textarea name="description" placeholder="Describe a mood or theme, e.g., 'upbeat 80s synth for a workout' or 'calm instrumental for studying'." className="min-h-[150px] bg-background" required />
+                        <AiSubmitButton />
+                    </form>
+                </div>
             </div>
         </div>
         <div className="flex flex-col bg-background/50 p-4 rounded-lg border">
@@ -367,7 +331,7 @@ export function MusicPlayer() {
                     <Upload className="mr-2" />
                     Upload Songs
                 </Button>
-                <p className="text-xs text-muted-foreground text-center">We'll read metadata for song info automatically!</p>
+                <p className="text-xs text-muted-foreground text-center">Upload your own audio files to play.</p>
                 <Button onClick={handleInvite} variant="outline" className="w-full">
                     <LinkIcon className="mr-2"/>
                     Get Invite Link
@@ -384,31 +348,6 @@ export function MusicPlayer() {
         </div>
       </CardContent>
     </Card>
-        <Dialog open={isLyricDialogOpen} onOpenChange={setIsLyricDialogOpen}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Enter Song Details</DialogTitle>
-                    <DialogDescription>
-                        We need the song title and artist to find the lyrics for you.
-                    </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleLyricDialogSubmit}>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="title" className="text-right">Title</Label>
-                            <Input id="title" value={lyricsFormData.title} onChange={(e) => setLyricsFormData({...lyricsFormData, title: e.target.value })} className="col-span-3" required/>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="artist" className="text-right">Artist</Label>
-                            <Input id="artist" value={lyricsFormData.artist} onChange={(e) => setLyricsFormData({...lyricsFormData, artist: e.target.value })} className="col-span-3" required/>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button type="submit">Fetch Lyrics</Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
     </>
   );
 }
