@@ -113,7 +113,7 @@ export default function ParticipantsPanel() {
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {isCameraOn && (
+                    {isCameraOn && localStream && (
                          <div className="relative aspect-video bg-card rounded-md overflow-hidden border-2 border-primary">
                             <video ref={myVideoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
                             <div className="absolute bottom-2 left-2 bg-black/50 text-white text-sm px-2 py-1 rounded flex items-center gap-1">
