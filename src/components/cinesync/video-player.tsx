@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { getDiscussionStarters } from '@/app/actions';
-import { initializeSync, syncState, onStateChange, PlayerState } from '@/lib/firebase-sync';
+import { initializeSync, syncState, onStateChange, type PlayerState } from '@/lib/firebase-sync';
 
 function formatTime(seconds: number) {
     if (isNaN(seconds)) return '00:00';
@@ -102,7 +102,13 @@ export default function VideoPlayer({ movieTitle, partyId }: VideoPlayerProps) {
     initializeSync(partyId);
 
     const cleanup = onStateChange((newState) => {
-      setPlayerState(prevState => ({ ...prevState, ...newState }));
+      setPlayerState(prevState => {
+        if (newState.videoSrc !== prevState.videoSrc) {
+            // Special handling for video source change
+            return { ...prevState, ...newState, videoSrc: newState.videoSrc };
+        }
+        return { ...prevState, ...newState };
+      });
       
       if (videoRef.current && newState) {
         if (!IS_HOST) {
@@ -114,9 +120,6 @@ export default function VideoPlayer({ movieTitle, partyId }: VideoPlayerProps) {
           if (Math.abs(videoRef.current.currentTime - newState.currentTime) > 2) {
               videoRef.current.currentTime = newState.currentTime;
           }
-        }
-        if (prevState.videoSrc !== newState.videoSrc) {
-            setPlayerState(s => ({...s, videoSrc: newState.videoSrc}));
         }
       }
     });
