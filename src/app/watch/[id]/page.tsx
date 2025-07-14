@@ -1,14 +1,15 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import ChatSidebar from '@/components/cinesync/chat-sidebar';
 import MainView from '@/components/cinesync/main-view';
 import ParticipantsPanel from '@/components/cinesync/participants-panel';
 
-export default function WatchPage({ params }: { params: { id: string } }) {
+export default function WatchPage() {
+  const params = useParams();
   const searchParams = useSearchParams();
   const theme = searchParams.get('theme');
-  const { id } = params;
+  const id = params.id as string;
 
   // In a real app, you'd fetch the schedule details using params.id
   // For now, we'll pass a mock title based on the ID.
