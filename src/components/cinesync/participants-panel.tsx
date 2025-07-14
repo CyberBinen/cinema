@@ -73,14 +73,28 @@ export default function ParticipantsPanel() {
         setIsCameraOn(true);
         setIsMicOn(true);
         setHasCameraPermission(true);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error accessing camera:', error);
+        if (error.name === 'NotAllowedError') {
+            toast({
+              variant: 'destructive',
+              title: 'Camera Access Denied',
+              description: 'You denied permission to access the camera. Please enable it in your browser settings.',
+            });
+        } else if (error.name === 'SecurityError') {
+             toast({
+                variant: 'destructive',
+                title: 'Camera Access Blocked',
+                description: 'Camera access is not allowed in this environment. Try opening the app in a new tab.',
+            });
+        } else {
+            toast({
+              variant: 'destructive',
+              title: 'Camera Error',
+              description: 'Could not access the camera. It might be in use by another application.',
+            });
+        }
         setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Denied',
-          description: 'Please enable camera permissions in your browser settings.',
-        });
       }
     }
   };
