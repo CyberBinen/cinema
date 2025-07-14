@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -31,8 +32,8 @@ function formatTime(seconds: number) {
     if (isNaN(seconds)) return '00:00';
     const date = new Date(seconds * 1000);
     const hh = date.getUTCHours();
-    const mm = date.getUTCMinutes().toString().padStart(2, '0');
-    const ss = date.getUTCSeconds().toString().padStart(2, '0');
+    const mm = date.getUTCMMinutes().toString().padStart(2, '0');
+    const ss = date.getUTCSseconds().toString().padStart(2, '0');
     if (hh) {
         return `${hh}:${mm}:${ss}`;
     }
@@ -64,6 +65,7 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
 
   const handleDiscussionStart = useCallback(async (title: string) => {
     const result = await getDiscussionStarters({ movieTitle: title });
@@ -103,6 +105,19 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
       setVideoTitle(scheduledTitle);
     }
   }, [scheduledTitle]);
+  
+  const stopCurrentStream = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    if (videoSrc && videoRef.current) {
+      URL.revokeObjectURL(videoSrc);
+      setVideoSrc(null);
+      videoRef.current.srcObject = null;
+      videoRef.current.src = '';
+    }
+  }
 
   useEffect(() => {
     const videoElement = videoRef.current;
@@ -117,6 +132,7 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
         if (videoTitle && videoTitle !== 'Screen Share' && videoTitle !== 'Movie Title') {
           handleDiscussionStart(videoTitle);
         }
+        setIsPlaying(false);
       }
 
       videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -135,7 +151,7 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
           videoElement.removeEventListener('ended', handleEnded);
       }
     }
-  }, [stream, videoTitle, handleDiscussionStart]);
+  }, [stream, videoSrc, videoTitle, handleDiscussionStart]);
 
 
   const handlePlayPause = () => {
@@ -157,7 +173,7 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
   };
 
   const handleFullscreen = () => {
-    const videoContainer = videoRef.current?.parentElement;
+    const videoContainer = playerContainerRef.current;
     if (!videoContainer) return;
 
     if (!document.fullscreenElement) {
@@ -180,14 +196,8 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      stopCurrentStream();
       const url = URL.createObjectURL(file);
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        setStream(null);
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
       setVideoSrc(url);
       setVideoTitle(file.name);
       setIsPlaying(false);
@@ -206,43 +216,28 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
   };
 
   const handleScreenShare = async () => {
+    stopCurrentStream();
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
         audio: true,
       });
-      if (videoSrc) {
-        URL.revokeObjectURL(videoSrc);
-        setVideoSrc(null);
-      }
       setStream(screenStream);
       setVideoTitle('Screen Share');
       
+      // Listen for when the user stops sharing via browser UI
       screenStream.getVideoTracks()[0].addEventListener('ended', () => {
-        setStream(null);
+        stopCurrentStream();
         setIsPlaying(false);
       });
-    } catch (error: any) {
-        if (error.name === 'NotAllowedError') {
-             toast({
-                variant: 'destructive',
-                title: 'Permission Denied',
-                description: 'You denied the request to share your screen.',
-            });
-        } else if (error.name === 'SecurityError' || error.name === 'NotAllowedError') {
-            toast({
-                variant: 'destructive',
-                title: 'Permission Policy Error',
-                description: 'Screen sharing is not allowed by the current security policy. This may happen in embedded environments like this one.',
-            });
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Screen Share Error',
-                description: 'Could not start screen sharing. Please try again.',
-            });
-        }
-      console.error('Error sharing screen:', error);
+
+    } catch (error) {
+      console.error('Screen share error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Screen Share Failed',
+        description: 'Permission to share screen was denied. Please try again.',
+      });
     }
   };
   
@@ -256,7 +251,7 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
 
   return (
     <TooltipProvider>
-      <div className="relative w-full aspect-video bg-black rounded-lg shadow-2xl overflow-hidden group">
+      <div ref={playerContainerRef} className="relative w-full aspect-video bg-black rounded-lg shadow-2xl overflow-hidden group">
         <video
           ref={videoRef}
           src={videoSrc || undefined}
@@ -334,7 +329,7 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
             <div className="absolute bottom-0 left-0 right-0 p-4 z-10 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <div className="flex items-center gap-4 mb-2">
                 <div className="text-white text-sm font-mono">{formatTime(currentTime)}</div>
-                <Slider value={[currentTime]} max={duration} step={1} className="w-full" onValueChange={handleSliderChange} />
+                <Slider value={[currentTime]} max={duration} step={1} className="w-full" onValueChange={handleSliderChange} disabled={!duration} />
                 <div className="text-white text-sm font-mono">{formatTime(duration)}</div>
             </div>
             <div className="flex items-center justify-between">
@@ -445,3 +440,5 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
     </TooltipProvider>
   );
 }
+
+    
