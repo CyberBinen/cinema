@@ -31,6 +31,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { getSoundtrackSuggestion, getSongLyrics } from '@/app/actions';
 import { useFormStatus } from 'react-dom';
+import jsmediatags from 'jsmediatags';
 
 interface Track {
   file?: File;
@@ -143,21 +144,45 @@ export function MusicPlayer() {
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (files) {
-      const newTracks: Track[] = Array.from(files).map(file => ({
-        file,
-        name: file.name.replace(/\.[^/.]+$/, ""), // remove extension
-        url: URL.createObjectURL(file),
-        isAiSuggestion: false,
-      }));
+    if (!files) return;
+
+    const newTracksPromises = Array.from(files).map(file => {
+      return new Promise<Track>((resolve) => {
+        jsmediatags.read(file, {
+          onSuccess: (tag) => {
+            const { title, artist } = tag.tags;
+            resolve({
+              file,
+              name: title && artist ? `${title} by ${artist}` : file.name.replace(/\.[^/.]+$/, ""),
+              title: title,
+              artist: artist,
+              url: URL.createObjectURL(file),
+              isAiSuggestion: false,
+            });
+          },
+          onError: (error) => {
+            console.error('Error reading media tags:', error);
+            // Fallback to filename
+            resolve({
+              file,
+              name: file.name.replace(/\.[^/.]+$/, ""),
+              url: URL.createObjectURL(file),
+              isAiSuggestion: false,
+            });
+          }
+        });
+      });
+    });
+
+    Promise.all(newTracksPromises).then(newTracks => {
       setPlaylist(prev => [...prev, ...newTracks]);
       if (currentTrackIndex === null && newTracks.length > 0) {
         setCurrentTrackIndex(playlist.length);
       }
       toast({
           title: `${newTracks.length} song(s) added to the playlist!`,
-      })
-    }
+      });
+    });
   };
 
   const handlePlayPause = () => {
@@ -201,29 +226,17 @@ export function MusicPlayer() {
   }
   
   const handleFetchLyrics = () => {
-    if (!currentTrack || (!currentTrack.isAiSuggestion && !currentTrack.name.includes(' by '))) {
+    if (!currentTrack || !currentTrack.title || !currentTrack.artist) {
         toast({
             variant: 'destructive',
             title: 'Cannot Fetch Lyrics',
-            description: 'Could not determine song title and artist. Please ensure uploaded file names are in "Title by Artist" format.',
+            description: 'Could not determine song title and artist from the file metadata.',
         });
         return;
     }
 
-    let title = currentTrack.title;
-    let artist = currentTrack.artist;
-
-    if (!currentTrack.isAiSuggestion) {
-        [title, artist] = currentTrack.name.split(' by ').map(s => s.trim());
-    }
-
-    if (!title || !artist) {
-        toast({ variant: 'destructive', title: 'Cannot Fetch Lyrics', description: 'Missing song title or artist.' });
-        return;
-    }
-
     startLyricsTransition(async () => {
-        const result = await getSongLyrics({ title: title as string, artist: artist as string });
+        const result = await getSongLyrics({ title: currentTrack.title as string, artist: currentTrack.artist as string });
         if (result.lyrics) {
             setLyrics(result.lyrics);
         } else {
@@ -346,7 +359,7 @@ export function MusicPlayer() {
                     <Upload className="mr-2" />
                     Upload Songs
                 </Button>
-                <p className="text-xs text-muted-foreground text-center">For lyrics, name files "Song Title by Artist.mp3"</p>
+                <p className="text-xs text-muted-foreground text-center">We'll read metadata for song info automatically!</p>
                 <Button onClick={handleInvite} variant="outline" className="w-full">
                     <LinkIcon className="mr-2"/>
                     Get Invite Link
