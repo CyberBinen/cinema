@@ -31,7 +31,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { getSoundtrackSuggestion, getSongLyrics } from '@/app/actions';
 import { useFormStatus } from 'react-dom';
-import * as jsmediatags from 'jsmediatags/dist/jsmediatags';
+import type { jsmediatags as JsMediaTags } from 'jsmediatags/types';
 
 interface Track {
   file?: File;
@@ -78,15 +78,23 @@ export function MusicPlayer() {
   const [isMuted, setIsMuted] = useState(false);
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [isLyricsLoading, startLyricsTransition] = useTransition();
+  const jsMediaTagsRef = useRef<JsMediaTags | null>(null);
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    // Dynamically import jsmediatags only on the client side
+    import('jsmediatags').then(module => {
+      jsMediaTagsRef.current = module.default;
+    });
+  }, []);
+
   const currentTrack = currentTrackIndex !== null ? playlist[currentTrackIndex] : null;
 
     // AI Suggestion Action
-  const [suggestionState, suggestionAction] = useActionState(getSoundtrackSuggestion, { suggestions: undefined, error: undefined });
+  const [suggestionState, suggestionAction] = useActionState(getSoundtrackSuggestion, { message: "", suggestions: undefined, error: undefined });
   useEffect(() => {
     if (suggestionState?.suggestions?.songs) {
       toast({
@@ -144,7 +152,9 @@ export function MusicPlayer() {
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (!files) return;
+    if (!files || !jsMediaTagsRef.current) return;
+
+    const jsmediatags = jsMediaTagsRef.current;
 
     const newTracksPromises = Array.from(files).map(file => {
       return new Promise<Track>((resolve) => {
