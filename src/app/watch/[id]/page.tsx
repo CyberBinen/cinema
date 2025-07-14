@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useParams, useSearchParams } from 'next/navigation';
@@ -33,7 +34,7 @@ export default function WatchPage() {
   return (
     <div className="flex h-screen w-full bg-slate-800" style={backgroundStyle}>
       <main className="flex-1 flex flex-col overflow-y-auto bg-black/50 backdrop-blur-sm">
-        <MainView movieTitle={movieTitle} />
+        <MainView movieTitle={movieTitle} partyId={id} />
         <ParticipantsPanel />
       </main>
       <ChatSidebar movieTitle={movieTitle}/>
