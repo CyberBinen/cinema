@@ -7,6 +7,7 @@ import { chatBot, ChatBotInput, ChatBotOutput } from "@/ai/flows/chat-bot";
 import { generateDiscussionStarters, GenerateDiscussionStartersInput, GenerateDiscussionStartersOutput } from "@/ai/flows/generate-discussion-starters";
 import { suggestSoundtrack, SuggestSoundtrackInput, SuggestSoundtrackOutput } from "@/ai/flows/suggest-soundtrack";
 import { generatePosterForGame, GeneratePosterForGameInput, GeneratePosterForGameOutput } from "@/ai/flows/generate-poster-for-game";
+import { getLyrics, GetLyricsInput, GetLyricsOutput } from "@/ai/flows/get-lyrics";
 
 import { z } from "zod";
 
@@ -38,6 +39,11 @@ const suggestSoundtrackActionSchema = z.object({
 
 const generatePosterForGameActionSchema = z.object({
     movieTitle: z.string().min(2, "Please enter a movie title."),
+});
+
+const getLyricsActionSchema = z.object({
+    title: z.string(),
+    artist: z.string(),
 });
 
 
@@ -170,6 +176,7 @@ export async function getSoundtrackSuggestion(
     prevState: any,
     formData: FormData
 ): Promise<{
+    message: string;
     suggestions?: SuggestSoundtrackOutput;
     error?: any;
 }> {
@@ -219,4 +226,24 @@ export async function getGamePoster(
     console.error(e);
     return { message: "error", error: "Something went wrong with the AI. Please try again." };
   }
+}
+
+export async function getSongLyrics(
+  input: GetLyricsInput
+): Promise<{
+    lyrics?: string;
+    error?: string;
+}> {
+    const validatedFields = getLyricsActionSchema.safeParse(input);
+
+    if (!validatedFields.success) {
+        return { error: "Validation failed" };
+    }
+
+    try {
+        const result = await getLyrics(validatedFields.data);
+        return { lyrics: result.lyrics };
+    } catch(e) {
+        return { error: "Something went wrong with the AI. Please try again." };
+    }
 }

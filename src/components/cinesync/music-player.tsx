@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useActionState } from 'react';
+import React, { useState, useRef, useEffect, useActionState, useTransition } from 'react';
 import {
   Card,
   CardContent,
@@ -22,19 +22,23 @@ import {
   Link as LinkIcon,
   Wand2,
   Loader2,
-  Music4
+  Music4,
+  Mic2
 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { getSoundtrackSuggestion } from '@/app/actions';
+import { getSoundtrackSuggestion, getSongLyrics } from '@/app/actions';
 import { useFormStatus } from 'react-dom';
 
 interface Track {
   file?: File;
   name: string;
+  artist?: string;
+  title?: string;
   url: string;
+  isAiSuggestion: boolean;
 }
 
 function formatTime(seconds: number) {
@@ -71,6 +75,8 @@ export function MusicPlayer() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [lyrics, setLyrics] = useState<string | null>(null);
+  const [isLyricsLoading, startLyricsTransition] = useTransition();
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -88,13 +94,15 @@ export function MusicPlayer() {
       });
       const newTracks: Track[] = suggestionState.suggestions.songs.map(song => ({
         name: `${song.title} by ${song.artist}`,
-        // This is a placeholder URL. In a real app, you'd fetch this from a music service API.
+        title: song.title,
+        artist: song.artist,
         url: '', 
+        isAiSuggestion: true,
       }));
       setPlaylist(prev => [...prev, ...newTracks]);
     }
     if (suggestionState?.error) {
-        toast({ variant: 'destructive', title: 'Error', description: suggestionState.error });
+        toast({ variant: 'destructive', title: 'Error', description: suggestionState.error as string });
     }
   }, [suggestionState, toast]);
 
@@ -115,6 +123,7 @@ export function MusicPlayer() {
         audio.removeEventListener('ended', handleTrackEnd);
       };
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrackIndex, playlist]);
   
   useEffect(() => {
@@ -128,6 +137,7 @@ export function MusicPlayer() {
         toast({ variant: 'destructive', title: "Cannot play track", description: `${currentTrack.name} is a suggestion and can't be played.`});
         setIsPlaying(false);
     }
+    setLyrics(null); // Clear lyrics when track changes
   }, [currentTrack, toast]);
 
 
@@ -136,8 +146,9 @@ export function MusicPlayer() {
     if (files) {
       const newTracks: Track[] = Array.from(files).map(file => ({
         file,
-        name: file.name,
+        name: file.name.replace(/\.[^/.]+$/, ""), // remove extension
         url: URL.createObjectURL(file),
+        isAiSuggestion: false,
       }));
       setPlaylist(prev => [...prev, ...newTracks]);
       if (currentTrackIndex === null && newTracks.length > 0) {
@@ -188,6 +199,39 @@ export function MusicPlayer() {
   const selectTrack = (index: number) => {
       setCurrentTrackIndex(index);
   }
+  
+  const handleFetchLyrics = () => {
+    if (!currentTrack || (!currentTrack.isAiSuggestion && !currentTrack.name.includes(' by '))) {
+        toast({
+            variant: 'destructive',
+            title: 'Cannot Fetch Lyrics',
+            description: 'Could not determine song title and artist. Please ensure uploaded file names are in "Title by Artist" format.',
+        });
+        return;
+    }
+
+    let title = currentTrack.title;
+    let artist = currentTrack.artist;
+
+    if (!currentTrack.isAiSuggestion) {
+        [title, artist] = currentTrack.name.split(' by ').map(s => s.trim());
+    }
+
+    if (!title || !artist) {
+        toast({ variant: 'destructive', title: 'Cannot Fetch Lyrics', description: 'Missing song title or artist.' });
+        return;
+    }
+
+    startLyricsTransition(async () => {
+        const result = await getSongLyrics({ title: title as string, artist: artist as string });
+        if (result.lyrics) {
+            setLyrics(result.lyrics);
+        } else {
+            setLyrics('Lyrics not found.');
+            toast({ variant: 'destructive', title: 'Error', description: result.error || 'Could not fetch lyrics.' });
+        }
+    });
+  }
 
   const handleInvite = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -205,7 +249,7 @@ export function MusicPlayer() {
           Music Sharing Session
         </CardTitle>
         <CardDescription>
-          Upload songs to create a shared playlist, or get AI suggestions. Invite friends to listen along.
+          Upload songs, get AI suggestions, and sing along with lyrics. Invite friends to listen together.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid lg:grid-cols-3 gap-6">
@@ -230,7 +274,7 @@ export function MusicPlayer() {
                             <span>{formatTime(duration)}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <Button variant="ghost" size="icon" onClick={handleMute}>
+                             <Button variant="ghost" size="icon" onClick={handleMute}>
                                 {isMuted ? <VolumeX /> : <Volume2 />}
                             </Button>
                             <div className="flex items-center gap-2">
@@ -244,7 +288,9 @@ export function MusicPlayer() {
                                     <StepForward />
                                 </Button>
                             </div>
-                            <div className="w-8"></div>
+                            <Button variant="ghost" size="icon" onClick={handleFetchLyrics} disabled={!currentTrack || isLyricsLoading}>
+                                {isLyricsLoading ? <Loader2 className="animate-spin" /> : <Mic2 />}
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -264,7 +310,7 @@ export function MusicPlayer() {
                                     >
                                         <Music4 className="w-4 h-4 text-muted-foreground"/>
                                         <span className="flex-1 truncate">{track.name}</span>
-                                        {!track.url && <span className="text-xs text-accent font-mono">[AI]</span>}
+                                        {track.isAiSuggestion && <span className="text-xs text-accent font-mono">[AI]</span>}
                                     </li>
                                 ))}
                             </ul>
@@ -275,13 +321,22 @@ export function MusicPlayer() {
                         )}
                     </ScrollArea>
                 </div>
-                <div className="flex flex-col bg-background/50 p-4 rounded-lg border">
-                    <h3 className="text-lg font-semibold mb-3">AI Soundtrack Suggester</h3>
-                    <form action={suggestionAction} className="space-y-4">
-                        <Textarea name="description" placeholder="Describe a mood or theme, e.g., 'upbeat 80s synth for a workout' or 'calm instrumental for studying'." className="min-h-[150px] bg-background" required />
-                        <AiSubmitButton />
-                    </form>
-                </div>
+                {lyrics ? (
+                    <div className="flex flex-col bg-background/50 p-4 rounded-lg border">
+                        <h3 className="text-lg font-semibold mb-3">Lyrics</h3>
+                        <ScrollArea className="flex-1 bg-muted/30 rounded-md min-h-[200px] p-4">
+                           <pre className="whitespace-pre-wrap text-sm font-sans">{lyrics}</pre>
+                        </ScrollArea>
+                    </div>
+                ) : (
+                     <div className="flex flex-col bg-background/50 p-4 rounded-lg border">
+                        <h3 className="text-lg font-semibold mb-3">AI Soundtrack Suggester</h3>
+                        <form action={suggestionAction} className="space-y-4">
+                            <Textarea name="description" placeholder="Describe a mood or theme, e.g., 'upbeat 80s synth for a workout' or 'calm instrumental for studying'." className="min-h-[150px] bg-background" required />
+                            <AiSubmitButton />
+                        </form>
+                    </div>
+                )}
             </div>
         </div>
         <div className="flex flex-col bg-background/50 p-4 rounded-lg border">
@@ -291,6 +346,7 @@ export function MusicPlayer() {
                     <Upload className="mr-2" />
                     Upload Songs
                 </Button>
+                <p className="text-xs text-muted-foreground text-center">For lyrics, name files "Song Title by Artist.mp3"</p>
                 <Button onClick={handleInvite} variant="outline" className="w-full">
                     <LinkIcon className="mr-2"/>
                     Get Invite Link

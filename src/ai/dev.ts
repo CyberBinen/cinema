@@ -9,3 +9,4 @@ import '@/ai/flows/generate-poster.ts';
 import '@/ai/flows/generate-discussion-starters.ts';
 import '@/ai/flows/suggest-soundtrack.ts';
 import '@/ai/flows/generate-poster-for-game.ts';
+import '@/ai/flows/get-lyrics.ts';
