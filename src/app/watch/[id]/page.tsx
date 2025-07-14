@@ -1,15 +1,36 @@
+'use client';
+
+import { useSearchParams } from 'next/navigation';
 import ChatSidebar from '@/components/cinesync/chat-sidebar';
 import MainView from '@/components/cinesync/main-view';
 import ParticipantsPanel from '@/components/cinesync/participants-panel';
 
 export default function WatchPage({ params }: { params: { id: string } }) {
+  const searchParams = useSearchParams();
+  const theme = searchParams.get('theme');
+
   // In a real app, you'd fetch the schedule details using params.id
   // For now, we'll pass a mock title based on the ID.
   const movieTitle = `Movie for party ${params.id}`;
 
+  const themeBackgrounds: { [key: string]: string } = {
+    horror: 'https://placehold.co/1920x1080/000000/ffffff.png?text=Horror',
+    scifi: 'https://placehold.co/1920x1080/0c0c2c/ffffff.png?text=Sci-Fi',
+    comedy: 'https://placehold.co/1920x1080/fff8e1/000000.png?text=Comedy',
+  }
+  
+  const backgroundStyle = theme && themeBackgrounds[theme] ? {
+    backgroundImage: `url('${themeBackgrounds[theme]}')`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundAttachment: 'fixed',
+  } : {
+    backgroundColor: "hsl(0, 0%, 20%)"
+  };
+
   return (
-    <div className="flex h-screen w-full bg-slate-800" style={{backgroundColor: "hsl(0, 0%, 20%)"}}>
-      <main className="flex-1 flex flex-col overflow-y-auto">
+    <div className="flex h-screen w-full bg-slate-800" style={backgroundStyle}>
+      <main className="flex-1 flex flex-col overflow-y-auto bg-black/50 backdrop-blur-sm">
         <MainView movieTitle={movieTitle} />
         <ParticipantsPanel />
       </main>

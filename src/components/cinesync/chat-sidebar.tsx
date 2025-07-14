@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Clapperboard, Send, Users, MessageSquareQuote, Loader2, Bot, SmilePlus, Mic } from 'lucide-react';
+import { Clapperboard, Send, Users, MessageSquareQuote, Loader2, Bot, SmilePlus, Mic, MicOff } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
 import { getChatSummary, getTriviaAnswer } from '@/app/actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -85,8 +85,37 @@ const SendButton = () => {
 export default function ChatSidebar({ movieTitle }: { movieTitle: string }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [summary, setSummary] = useState<string | null>(null);
+  const [questionInput, setQuestionInput] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const { toast } = useToast();
+
+  // Speech Recognition Setup
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = false;
+        recognitionRef.current.lang = 'en-US';
+
+        recognitionRef.current.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            setQuestionInput(transcript);
+            setIsListening(false);
+        };
+        recognitionRef.current.onerror = (event: any) => {
+            console.error('Speech recognition error', event.error);
+            toast({ variant: 'destructive', title: 'Voice Error', description: `An error occurred during speech recognition: ${event.error}` });
+            setIsListening(false);
+        };
+        recognitionRef.current.onend = () => {
+            setIsListening(false);
+        };
+    }
+  }, [toast]);
+
 
   useEffect(() => {
     const handleDiscussionStarters = (event: Event) => {
@@ -158,12 +187,25 @@ export default function ChatSidebar({ movieTitle }: { movieTitle: string }) {
     triviaFormData.append('question', question);
     
     triviaAction(triviaFormData);
-    formRef.current?.reset();
+    setQuestionInput('');
   }
   
   const handleEmojiClick = (emoji: string) => {
     const event = new CustomEvent('emoji-reaction', { detail: emoji });
     window.dispatchEvent(event);
+  };
+  
+  const handleVoiceInput = () => {
+    if (recognitionRef.current) {
+        if (isListening) {
+            recognitionRef.current.stop();
+        } else {
+            recognitionRef.current.start();
+        }
+        setIsListening(!isListening);
+    } else {
+        toast({ variant: 'destructive', title: 'Unsupported Browser', description: 'Your browser does not support speech recognition.' });
+    }
   };
 
   const chatHistoryForSummary = messages.map(m => `${m.user}: ${m.text}`).join('\n');
@@ -241,10 +283,15 @@ export default function ChatSidebar({ movieTitle }: { movieTitle: string }) {
             <Input
               name="question"
               placeholder="Ask the AI about the movie..."
-              className="pr-20"
+              className="pr-28"
               required
+              value={questionInput}
+              onChange={(e) => setQuestionInput(e.target.value)}
             />
-            <div className="absolute top-1/2 right-10 -translate-y-1/2">
+            <div className="absolute top-1/2 right-10 -translate-y-1/2 flex items-center">
+                 <Button type="button" size="icon" variant="ghost" className={`h-8 w-8 text-muted-foreground hover:text-accent ${isListening ? 'text-red-500' : ''}`} onClick={handleVoiceInput}>
+                    {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+                </Button>
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-accent">

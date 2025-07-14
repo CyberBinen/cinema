@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Clapperboard, Music, Sparkles, Tv } from 'lucide-react';
+import { Clapperboard, Music, Sparkles, Tv, Gamepad2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -21,7 +21,7 @@ export default function Home() {
             CineSync
           </h1>
           <p className="text-muted-foreground mt-2 text-lg drop-shadow-md">
-            Your place for synchronized movie nights and shared music sessions, from anywhere.
+            Your place for synchronized movie nights, shared music, and fun games from anywhere.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 mt-12">
@@ -37,10 +37,16 @@ export default function Home() {
                     Start a Music Session
                 </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="bg-background/20 border-white/20 hover:bg-white/10">
+             <Button asChild variant="outline" size="lg" className="bg-background/20 border-white/20 hover:bg-white/10">
               <Link href="/recommend">
                 <Sparkles className="mr-2" />
                 Get Movie Ideas
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="bg-background/20 border-white/20 hover:bg-white/10">
+              <Link href="/games">
+                <Gamepad2 className="mr-2" />
+                Play a Game
               </Link>
             </Button>
           </div>

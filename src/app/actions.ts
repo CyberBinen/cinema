@@ -5,6 +5,9 @@ import { searchFilm, SearchFilmInput, SearchFilmOutput } from "@/ai/flows/search
 import { summarizeChat, SummarizeChatInput, SummarizeChatOutput } from "@/ai/flows/summarize-chat";
 import { chatBot, ChatBotInput, ChatBotOutput } from "@/ai/flows/chat-bot";
 import { generateDiscussionStarters, GenerateDiscussionStartersInput, GenerateDiscussionStartersOutput } from "@/ai/flows/generate-discussion-starters";
+import { suggestSoundtrack, SuggestSoundtrackInput, SuggestSoundtrackOutput } from "@/ai/flows/suggest-soundtrack";
+import { generatePosterForGame, GeneratePosterForGameInput, GeneratePosterForGameOutput } from "@/ai/flows/generate-poster-for-game";
+
 import { z } from "zod";
 
 const recommendFilmActionSchema = z.object({
@@ -27,6 +30,14 @@ const chatBotActionSchema = z.object({
 
 const discussionStartersActionSchema = z.object({
     movieTitle: z.string(),
+});
+
+const suggestSoundtrackActionSchema = z.object({
+    description: z.string().min(5, "Please describe the mood or theme."),
+});
+
+const generatePosterForGameActionSchema = z.object({
+    movieTitle: z.string().min(2, "Please enter a movie title."),
 });
 
 
@@ -153,4 +164,59 @@ export async function getDiscussionStarters(
     } catch(e) {
         return { error: "Something went wrong with the AI. Please try again." };
     }
+}
+
+export async function getSoundtrackSuggestion(
+    prevState: any,
+    formData: FormData
+): Promise<{
+    suggestions?: SuggestSoundtrackOutput;
+    error?: any;
+}> {
+    const validatedFields = suggestSoundtrackActionSchema.safeParse({
+        description: formData.get('description'),
+    });
+
+    if (!validatedFields.success) {
+        return {
+            message: "Validation failed",
+            error: validatedFields.error.flatten().fieldErrors,
+        };
+    }
+
+    try {
+        const result = await suggestSoundtrack(validatedFields.data as SuggestSoundtrackInput);
+        return { message: "success", suggestions: result };
+    } catch (e) {
+        console.error(e);
+        return { message: "error", error: "Something went wrong with the AI. Please try again." };
+    }
+}
+
+export async function getGamePoster(
+  prevState: any,
+  formData: FormData
+): Promise<{
+    message: string;
+    poster?: GeneratePosterForGameOutput;
+    error?: any;
+}> {
+  const validatedFields = generatePosterForGameActionSchema.safeParse({
+    movieTitle: formData.get('movieTitle'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      message: "Validation failed",
+      error: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    const result = await generatePosterForGame(validatedFields.data as GeneratePosterForGameInput);
+    return { message: "success", poster: result };
+  } catch (e) {
+    console.error(e);
+    return { message: "error", error: "Something went wrong with the AI. Please try again." };
+  }
 }
