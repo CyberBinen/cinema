@@ -32,8 +32,8 @@ function formatTime(seconds: number) {
     if (isNaN(seconds)) return '00:00';
     const date = new Date(seconds * 1000);
     const hh = date.getUTCHours();
-    const mm = date.getUTCMMinutes().toString().padStart(2, '0');
-    const ss = date.getUTCSseconds().toString().padStart(2, '0');
+    const mm = date.getUTCMinutes().toString().padStart(2, '0');
+    const ss = date.getUTCSeconds().toString().padStart(2, '0');
     if (hh) {
         return `${hh}:${mm}:${ss}`;
     }
@@ -231,13 +231,28 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
         setIsPlaying(false);
       });
 
-    } catch (error) {
-      console.error('Screen share error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Screen Share Failed',
-        description: 'Permission to share screen was denied. Please try again.',
-      });
+    } catch (error: any) {
+        if (error.name === 'NotAllowedError') {
+             toast({
+                variant: 'destructive',
+                title: 'Screen Share Failed',
+                description: 'Permission to share screen was denied. Please try again.',
+            });
+        } else if (error.name === 'SecurityError') {
+             toast({
+                variant: 'destructive',
+                title: 'Screen Share Blocked',
+                description: 'Screen sharing is not allowed in this environment. Try opening the app in a new tab.',
+            });
+        }
+        else {
+            console.error('Screen share error:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Screen Share Failed',
+                description: 'An unexpected error occurred. Please check the console.',
+            });
+        }
     }
   };
   
@@ -440,5 +455,3 @@ export default function VideoPlayer({ movieTitle: scheduledTitle }: VideoPlayerP
     </TooltipProvider>
   );
 }
-
-    
