@@ -8,12 +8,13 @@ export default function Home() {
     <div className="relative flex h-screen w-full items-center justify-center">
       <Image
         src="https://placehold.co/1920x1080.png"
-        alt="Friends watching a movie together on a couch"
+        alt="A cozy, modern living room with a large screen, set up for a movie night"
         fill
-        className="object-cover"
-        data-ai-hint="friends watching movie"
+        className="object-cover brightness-50"
+        data-ai-hint="movie night living room"
+        priority
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent" />
       <main className="relative z-10 flex flex-col items-center justify-center p-4 text-center text-white">
         <div className="flex flex-col items-center justify-center">
           <Clapperboard className="h-16 w-16 text-primary mb-4" />
